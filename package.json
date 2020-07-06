@@ -1,0 +1,20 @@
+{
+  "name": "websocketlib",
+  "version": "1.0.0",
+  "description": "WebSocket library",
+  "main": "dist/wsclient.js",
+  "typings": "dist/wsclient.d.ts",
+  "scripts": {
+    "build": "tsc && browserify tests/test.js -o tests/test.dist.js",
+    "start": "tsc && browserify tests/test.js -o tests/test.dist.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "websocket"
+  ],
+  "author": "kevinyjn",
+  "license": "ISC",
+  "devDependencies": {
+    "browserify": "^16.5.1"
+  }
+}
