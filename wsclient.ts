@@ -3,9 +3,11 @@ const AgentTypeWeb: number = 0;
 const AgentTypeApp: number = 1;
 const AgentTypeNWWeb: number = 2;
 
-const MessageCmdPING : number = 100;
-const MessageCmdLogin : number = 102;
-const MessageCmdLogout : number = 103;
+const MessageCmdPING: number = 100;
+const MessageCmdLogin: number = 102;
+const MessageCmdLogout: number = 103;
+
+const ResultCodeSuccess: number = 0;
 
 /**
  * WebSocket client wrapper
@@ -93,28 +95,22 @@ class WSClient {
    * Opening a websocket connection, if the connection were established or connecting, 
    * it would do the recoonect operation.
    * @param url websocket url
-   * @param userName 
-   * @param password 
+   * @param accountInfo 
    */
-  public open(url: string, userName: string, password: string) {
+  public open(url: string, accountInfo: any) {
     this._url = url
+    this._accountInfo = accountInfo
     if (this._ws) {
-      return this.reconnect(userName, password)
+      return this.reconnect()
     }
-    this._accountInfo.username = userName
-    this._accountInfo.password = password
     console.log('opening', this._url)
     this._open()
   }
 
   /**
    * Reconnect the websocket connection
-   * @param userName 
-   * @param password 
    */
-  public reconnect(userName: string, password: string) {
-    this._accountInfo.username = userName
-    this._accountInfo.password = password
+  public reconnect() {
     console.log('reconnecting to', this._url)
     this.close()
     this._open()
@@ -129,9 +125,7 @@ class WSClient {
       this._ws.onmessage = null
       this._ws.onclose = null
       this._ws.onerror = null
-      if (this._heartbeatTimer) {
-        clearInterval(this._heartbeatTimer)
-      }
+      this._closeHeartbeat()
       if (this._ws.readyState == WebSocket.OPEN || this._ws.readyState == WebSocket.CONNECTING) {
         this._ws.close()
       }
@@ -168,15 +162,14 @@ class WSClient {
 
   /**
    * Send login data
-   * @param userName 
-   * @param password 
+   * @param accountInfo 
    */
-  public login(userName: string, password: string) {
+  public login(accountInfo: any) {
     let msg = {
       requestId: 'id-login',
       userAgent: this._agentText,
       bizCode: this._bizCodeLogin,
-      data: this._accountInfo
+      data: accountInfo
     }
     this.send(MessageCmdLogin, msg)
   }
@@ -254,7 +247,7 @@ class WSClient {
     console.log('websocket connection established.')
     const inst = WSClient.instance()
     inst._sequenceNumber = 0;
-    inst.login(inst._accountInfo.username, inst._accountInfo.password)
+    inst.login(inst._accountInfo)
     inst._heartbeatTimer = setInterval(() => {
       inst.ping('ping')
     }, inst._heartbeatIntervalSeconds * 1000)
@@ -265,66 +258,88 @@ class WSClient {
     }
   }
 
-  private _onmessage(ev: MessageEvent) {
-    ev.data.text().then((data: any) => {
-      console.log('received data', data)
-      let msg: any = {}
-      const inst = WSClient.instance()
-      try {
-        msg = JSON.parse(data)
-      } catch (e) {
-        console.log('parse received data failed', e)
-      }
-      
-      if (msg.code !== undefined) {
-        inst._lastResponseCode = msg.code
-        if (msg.code === 0) {
-          if (typeof (msg.data) === 'string') {
-            try {
-              let msgData = JSON.parse(msg.data)
-              msg.data = msgData
-            } catch (e) {
-              // pass
-            }
-          }
-        } else {
-          console.log('received message failed with code', msg.code, msg.message)
-        }
-
-        // emmits
-        if (msg.bizCode !== undefined && inst._subscribes[msg.bizCode]) {
-          inst._subscribes[msg.bizCode].forEach(cb => {
-            cb(msg)
-          });
-        }
-      }
-      
-    }).catch((e: any) => {
-      console.log('read received message failed with error', e)
-    })
-  }
-
   private _onerror(ev: Event) {
     console.log('websocket connection broken with error', ev)
     const inst = WSClient.instance()
     setTimeout(() => {
-      inst.reconnect(inst._accountInfo.username, inst._accountInfo.password)
+      inst.reconnect()
     }, inst._reconnectInteervalSeconds * 1000)
   }
 
   private _onclose(ev: CloseEvent) {
     console.log('websocket connection closed with error', ev)
     const inst = WSClient.instance()
+    let reconnecting: boolean = true
     inst._skipReconnectingCodes.forEach((code) => {
       if (code === inst._lastResponseCode) {
         console.log('skip reconnecting.')
+        reconnecting = false
+        inst._closeHeartbeat()
         return
       }
     })
-    setTimeout(() => {
-      inst.reconnect(inst._accountInfo.username, inst._accountInfo.password)
-    }, inst._reconnectInteervalSeconds * 1000)
+    if (reconnecting) {
+      setTimeout(() => {
+        inst.reconnect()
+      }, inst._reconnectInteervalSeconds * 1000)
+    }
   }
+
+  private _onmessage(ev: MessageEvent) {
+    // console.log('receiving data', ev.data)
+    const inst = WSClient.instance()
+    if (ev.data.text) {
+      ev.data.text().then((data: any) => {
+        inst._on_received_data(data)
+      }).catch((e: any) => {
+        console.log('read received message failed with error', e)
+      })
+    } else {
+      inst._on_received_data(ev.data)
+    }
+  }
+
+  private _on_received_data(data: any) {
+    console.log('received data', data)
+    let msg: any = {}
+    const inst = WSClient.instance()
+    try {
+      msg = JSON.parse(data)
+    } catch (e) {
+      console.log('parse received data failed', e)
+    }
+    
+    if (msg.code !== undefined) {
+      inst._lastResponseCode = msg.code
+      if (msg.code === 0) {
+        if (typeof (msg.data) === 'string') {
+          try {
+            let msgData = JSON.parse(msg.data)
+            msg.data = msgData
+          } catch (e) {
+            // pass
+          }
+        }
+      } else {
+        console.log('received message failed with code', msg.code, msg.message)
+      }
+
+      // emmits
+      if (msg.bizCode !== undefined && inst._subscribes[msg.bizCode]) {
+        inst._subscribes[msg.bizCode].forEach(cb => {
+          cb(msg)
+        });
+      }
+    }
+  }
+
+  private _closeHeartbeat() {
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer)
+      this._heartbeatTimer = 0
+    }
+  }
+
 }
 
 class WsPackage {

@@ -14,6 +14,7 @@ const MessageCmdLogin = 102;
 exports.MessageCmdLogin = MessageCmdLogin;
 const MessageCmdLogout = 103;
 exports.MessageCmdLogout = MessageCmdLogout;
+const ResultCodeSuccess = 0;
 /**
  * WebSocket client wrapper
  */
@@ -93,27 +94,21 @@ class WSClient {
      * Opening a websocket connection, if the connection were established or connecting,
      * it would do the recoonect operation.
      * @param url websocket url
-     * @param userName
-     * @param password
+     * @param accountInfo
      */
-    open(url, userName, password) {
+    open(url, accountInfo) {
         this._url = url;
+        this._accountInfo = accountInfo;
         if (this._ws) {
-            return this.reconnect(userName, password);
+            return this.reconnect();
         }
-        this._accountInfo.username = userName;
-        this._accountInfo.password = password;
         console.log('opening', this._url);
         this._open();
     }
     /**
      * Reconnect the websocket connection
-     * @param userName
-     * @param password
      */
-    reconnect(userName, password) {
-        this._accountInfo.username = userName;
-        this._accountInfo.password = password;
+    reconnect() {
         console.log('reconnecting to', this._url);
         this.close();
         this._open();
@@ -127,9 +122,7 @@ class WSClient {
             this._ws.onmessage = null;
             this._ws.onclose = null;
             this._ws.onerror = null;
-            if (this._heartbeatTimer) {
-                clearInterval(this._heartbeatTimer);
-            }
+            this._closeHeartbeat();
             if (this._ws.readyState == WebSocket.OPEN || this._ws.readyState == WebSocket.CONNECTING) {
                 this._ws.close();
             }
@@ -164,15 +157,14 @@ class WSClient {
     }
     /**
      * Send login data
-     * @param userName
-     * @param password
+     * @param accountInfo
      */
-    login(userName, password) {
+    login(accountInfo) {
         let msg = {
             requestId: 'id-login',
             userAgent: this._agentText,
             bizCode: this._bizCodeLogin,
-            data: this._accountInfo
+            data: accountInfo
         };
         this.send(MessageCmdLogin, msg);
     }
@@ -244,7 +236,7 @@ class WSClient {
         console.log('websocket connection established.');
         const inst = WSClient.instance();
         inst._sequenceNumber = 0;
-        inst.login(inst._accountInfo.username, inst._accountInfo.password);
+        inst.login(inst._accountInfo);
         inst._heartbeatTimer = setInterval(() => {
             inst.ping('ping');
         }, inst._heartbeatIntervalSeconds * 1000);
@@ -255,63 +247,84 @@ class WSClient {
             });
         }
     }
-    _onmessage(ev) {
-        ev.data.text().then((data) => {
-            console.log('received data', data);
-            let msg = {};
-            const inst = WSClient.instance();
-            try {
-                msg = JSON.parse(data);
-            }
-            catch (e) {
-                console.log('parse received data failed', e);
-            }
-            if (msg.code !== undefined) {
-                inst._lastResponseCode = msg.code;
-                if (msg.code === 0) {
-                    if (typeof (msg.data) === 'string') {
-                        try {
-                            let msgData = JSON.parse(msg.data);
-                            msg.data = msgData;
-                        }
-                        catch (e) {
-                            // pass
-                        }
-                    }
-                }
-                else {
-                    console.log('received message failed with code', msg.code, msg.message);
-                }
-                // emmits
-                if (msg.bizCode !== undefined && inst._subscribes[msg.bizCode]) {
-                    inst._subscribes[msg.bizCode].forEach(cb => {
-                        cb(msg);
-                    });
-                }
-            }
-        }).catch((e) => {
-            console.log('read received message failed with error', e);
-        });
-    }
     _onerror(ev) {
         console.log('websocket connection broken with error', ev);
         const inst = WSClient.instance();
         setTimeout(() => {
-            inst.reconnect(inst._accountInfo.username, inst._accountInfo.password);
+            inst.reconnect();
         }, inst._reconnectInteervalSeconds * 1000);
     }
     _onclose(ev) {
         console.log('websocket connection closed with error', ev);
         const inst = WSClient.instance();
+        let reconnecting = true;
         inst._skipReconnectingCodes.forEach((code) => {
             if (code === inst._lastResponseCode) {
                 console.log('skip reconnecting.');
+                reconnecting = false;
+                inst._closeHeartbeat();
                 return;
             }
         });
-        setTimeout(() => {
-            inst.reconnect(inst._accountInfo.username, inst._accountInfo.password);
-        }, inst._reconnectInteervalSeconds * 1000);
+        if (reconnecting) {
+            setTimeout(() => {
+                inst.reconnect();
+            }, inst._reconnectInteervalSeconds * 1000);
+        }
+    }
+    _onmessage(ev) {
+        // console.log('receiving data', ev.data)
+        const inst = WSClient.instance();
+        if (ev.data.text) {
+            ev.data.text().then((data) => {
+                inst._on_received_data(data);
+            }).catch((e) => {
+                console.log('read received message failed with error', e);
+            });
+        }
+        else {
+            inst._on_received_data(ev.data);
+        }
+    }
+    _on_received_data(data) {
+        console.log('received data', data);
+        let msg = {};
+        const inst = WSClient.instance();
+        try {
+            msg = JSON.parse(data);
+        }
+        catch (e) {
+            console.log('parse received data failed', e);
+        }
+        if (msg.code !== undefined) {
+            inst._lastResponseCode = msg.code;
+            if (msg.code === 0) {
+                if (typeof (msg.data) === 'string') {
+                    try {
+                        let msgData = JSON.parse(msg.data);
+                        msg.data = msgData;
+                    }
+                    catch (e) {
+                        // pass
+                    }
+                }
+            }
+            else {
+                console.log('received message failed with code', msg.code, msg.message);
+            }
+            // emmits
+            if (msg.bizCode !== undefined && inst._subscribes[msg.bizCode]) {
+                inst._subscribes[msg.bizCode].forEach(cb => {
+                    cb(msg);
+                });
+            }
+        }
+    }
+    _closeHeartbeat() {
+        if (this._heartbeatTimer) {
+            clearInterval(this._heartbeatTimer);
+            this._heartbeatTimer = 0;
+        }
     }
 }
 exports.WSClient = WSClient;
@@ -363,14 +376,14 @@ const { WSClient, AgentTypeWeb } = require('../dist/wsclient')
 
 const test = () => {
     const wsInst = WSClient.instance()
-    wsInst.init(AgentTypeWeb, 'web')
+    wsInst.init(AgentTypeWeb, 'yixiaobao')
     wsInst.enablePackageHead(true)
     wsInst.setLoginBizCode('a1001')
     wsInst.setLogoutBizCode('a1003')
     wsInst.setSkipReconnectingCodes([19014])
     wsInst.subscribe('a1001', onLogin)
     wsInst.subscribe('a1003', onLogout)
-    wsInst.open('ws://127.0.0.1:8036/ws/index', '00000420', '000420')
+    wsInst.open('ws://127.0.0.1:8036/ws/index', {username: '00000420', password: '000420'})
     wsInst.ping('ping')
 }
 

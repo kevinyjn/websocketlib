@@ -1,6 +1,6 @@
 {
-  "name": "websocketlib",
-  "version": "1.0.0",
+  "name": "@kevinyjn/websocketlib",
+  "version": "1.0.1",
   "description": "WebSocket library",
   "main": "dist/wsclient.js",
   "typings": "dist/wsclient.d.ts",
