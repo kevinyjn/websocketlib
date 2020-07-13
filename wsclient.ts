@@ -33,6 +33,7 @@ class WSClient {
   private _enablePackageHead: boolean = false;
   private _skipReconnectingCodes: number[] = [];
   private _lastResponseCode: number = 0;
+  private _subscribingChannelMessageField: string = 'bizCode';
 
   constructor() {
     this._accountInfo = {
@@ -52,6 +53,7 @@ class WSClient {
     this._enablePackageHead = false;
     this._skipReconnectingCodes = [];
     this._lastResponseCode = 0;
+    this._subscribingChannelMessageField = 'bizCode';
   }
 
   /**
@@ -89,6 +91,14 @@ class WSClient {
    */
   public setSkipReconnectingCodes(codes: number[]) {
     this._skipReconnectingCodes = codes
+  }
+
+  /**
+   * Set field name for message to detect callback function subscribed by channel
+   * @param channelField 
+   */
+  public setSubscribingChannelMessageField(channelField: string) {
+    this._subscribingChannelMessageField = channelField
   }
 
   /**
@@ -140,7 +150,10 @@ class WSClient {
    */
   public subscribe(channel: string, cb: Function) {
     if (this._subscribes[channel]) {
-      this._subscribes[channel].push(cb)
+      const idx = this._subscribes[channel].indexOf(cb)
+      if (idx < 0) {
+        this._subscribes[channel].push(cb)
+      }
     } else {
       this._subscribes[channel] = [cb]
     }
@@ -325,8 +338,9 @@ class WSClient {
       }
 
       // emmits
-      if (msg.bizCode !== undefined && inst._subscribes[msg.bizCode]) {
-        inst._subscribes[msg.bizCode].forEach(cb => {
+      let channelField = inst._subscribingChannelMessageField
+      if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
+        inst._subscribes[msg[channelField]].forEach(cb => {
           cb(msg)
         });
       }

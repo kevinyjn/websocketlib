@@ -38,6 +38,7 @@ class WSClient {
         this._enablePackageHead = false;
         this._skipReconnectingCodes = [];
         this._lastResponseCode = 0;
+        this._subscribingChannelMessageField = 'bizCode';
         this._accountInfo = {
             username: '',
             password: '',
@@ -55,6 +56,7 @@ class WSClient {
         this._enablePackageHead = false;
         this._skipReconnectingCodes = [];
         this._lastResponseCode = 0;
+        this._subscribingChannelMessageField = 'bizCode';
     }
     /**
      * singleton instance
@@ -88,6 +90,13 @@ class WSClient {
      */
     setSkipReconnectingCodes(codes) {
         this._skipReconnectingCodes = codes;
+    }
+    /**
+     * Set field name for message to detect callback function subscribed by channel
+     * @param channelField
+     */
+    setSubscribingChannelMessageField(channelField) {
+        this._subscribingChannelMessageField = channelField;
     }
     /**
      * Opening a websocket connection, if the connection were established or connecting,
@@ -135,7 +144,10 @@ class WSClient {
      */
     subscribe(channel, cb) {
         if (this._subscribes[channel]) {
-            this._subscribes[channel].push(cb);
+            const idx = this._subscribes[channel].indexOf(cb);
+            if (idx < 0) {
+                this._subscribes[channel].push(cb);
+            }
         }
         else {
             this._subscribes[channel] = [cb];
@@ -312,8 +324,9 @@ class WSClient {
                 console.log('received message failed with code', msg.code, msg.message);
             }
             // emmits
-            if (msg.bizCode !== undefined && inst._subscribes[msg.bizCode]) {
-                inst._subscribes[msg.bizCode].forEach(cb => {
+            let channelField = inst._subscribingChannelMessageField;
+            if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
+                inst._subscribes[msg[channelField]].forEach(cb => {
                     cb(msg);
                 });
             }

@@ -1,6 +1,6 @@
 const { WSClient, AgentTypeWeb } = require('../dist/wsclient')
 
-const test = () => {
+const testInit = (username, password) => {
     const wsInst = WSClient.instance()
     wsInst.init(AgentTypeWeb, 'yixiaobao')
     wsInst.enablePackageHead(true)
@@ -9,8 +9,10 @@ const test = () => {
     wsInst.setSkipReconnectingCodes([19014])
     wsInst.subscribe('a1001', onLogin)
     wsInst.subscribe('a1003', onLogout)
-    wsInst.open('ws://127.0.0.1:8036/ws/index', {username: '00000420', password: '000420'})
+    wsInst.open('ws://127.0.0.1:8036/ws/index', {username: username, password: password})
     wsInst.ping('ping')
+
+    // WSClient.instance().subscribe('a1005', onServerTime)
 }
 
 const onLogin = (msg) => {
@@ -21,4 +23,4 @@ const onLogout = (msg) => {
     console.log('logout response', msg)
 }
 
-test()
+testInit()
