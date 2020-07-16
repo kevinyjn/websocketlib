@@ -13,6 +13,12 @@ const testInit = (username, password) => {
     wsInst.ping('ping')
 
     // WSClient.instance().subscribe('a1005', onServerTime)
+    // WSClient.instance().send(200, {
+    //     requestId: 'uuid',
+    //     userAgent: 'miaozhenadmin',
+    //     bizCode: 'a1005',
+    //     data: {time: 0}
+    // }, onServertime)
 }
 
 const onLogin = (msg) => {
@@ -23,4 +29,4 @@ const onLogout = (msg) => {
     console.log('logout response', msg)
 }
 
-testInit()
+testInit('00000420', '000420')

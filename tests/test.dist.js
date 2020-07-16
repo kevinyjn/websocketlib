@@ -14,6 +14,7 @@ const MessageCmdLogin = 102;
 exports.MessageCmdLogin = MessageCmdLogin;
 const MessageCmdLogout = 103;
 exports.MessageCmdLogout = MessageCmdLogout;
+const MessageCmdBiz = 200;
 const ResultCodeSuccess = 0;
 /**
  * WebSocket client wrapper
@@ -164,6 +165,9 @@ class WSClient {
             const idx = this._subscribes[channel].indexOf(cb);
             if (idx >= 0) {
                 this._subscribes[channel].splice(idx, 1);
+                if (this._subscribes[channel].length <= 0) {
+                    delete this._subscribes[channel];
+                }
             }
         }
     }
@@ -202,6 +206,7 @@ class WSClient {
         }
         let buf;
         if (this._enablePackageHead) {
+            this._sequenceNumber++;
             let wspkg = new WsPackage(cmd, this._agentType, this._sequenceNumber, message);
             buf = wspkg.encode();
         }
@@ -215,6 +220,16 @@ class WSClient {
             return;
         }
         this._ws.send(buf);
+    }
+    sendWithCallback(message, channel, cb) {
+        let cbIdx = -1;
+        if (this._subscribes[channel]) {
+            cbIdx = this._subscribes[channel].indexOf(cb);
+        }
+        if (cbIdx < 0) {
+            this.subscribe(channel, cb);
+        }
+        this.send(MessageCmdBiz, message);
     }
     /**
      * Send ping data to keepalive from server
@@ -355,7 +370,8 @@ class WsPackage {
         this.message = message;
     }
     encode() {
-        this.len = 16 + this.message.length;
+        let msgbuf = new TextEncoder().encode(this.message);
+        this.len = 16 + msgbuf.length;
         let buf = new Uint8Array(this.len);
         let hdr = new ArrayBuffer(16);
         const view = new DataView(hdr, 0, 16);
@@ -365,7 +381,6 @@ class WsPackage {
         view.setUint8(7, this.flag);
         view.setUint32(8, this.seq, false);
         view.setUint32(12, this.crc, false);
-        let msgbuf = new TextEncoder().encode(this.message);
         buf.set(new Uint8Array(hdr), 0);
         buf.set(msgbuf, 16);
         // console.log('serialized data', this.len, buf)
@@ -400,6 +415,12 @@ const testInit = (username, password) => {
     wsInst.ping('ping')
 
     // WSClient.instance().subscribe('a1005', onServerTime)
+    // WSClient.instance().send(200, {
+    //     requestId: 'uuid',
+    //     userAgent: 'miaozhenadmin',
+    //     bizCode: 'a1005',
+    //     data: {time: 0}
+    // }, onServertime)
 }
 
 const onLogin = (msg) => {
@@ -410,6 +431,6 @@ const onLogout = (msg) => {
     console.log('logout response', msg)
 }
 
-testInit()
+testInit('00000420', '000420')
 
 },{"../dist/wsclient":1}]},{},[2]);

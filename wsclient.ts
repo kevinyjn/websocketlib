@@ -6,6 +6,7 @@ const AgentTypeNWWeb: number = 2;
 const MessageCmdPING: number = 100;
 const MessageCmdLogin: number = 102;
 const MessageCmdLogout: number = 103;
+const MessageCmdBiz: number = 200;
 
 const ResultCodeSuccess: number = 0;
 
@@ -169,6 +170,9 @@ class WSClient {
       const idx = this._subscribes[channel].indexOf(cb)
       if (idx >= 0) {
         this._subscribes[channel].splice(idx, 1)
+        if (this._subscribes[channel].length <= 0) {
+          delete this._subscribes[channel]
+        }
       }
     }
   }
@@ -210,6 +214,7 @@ class WSClient {
     }
     let buf: ArrayBuffer;
     if (this._enablePackageHead) {
+      this._sequenceNumber++
       let wspkg = new WsPackage(cmd, this._agentType, this._sequenceNumber, message)
       buf = wspkg.encode()
     } else {
@@ -222,6 +227,17 @@ class WSClient {
       return
     }
     this._ws.send(buf)
+  }
+
+  public sendWithCallback(message: any, channel: string, cb: Function) {
+    let cbIdx: number = -1
+    if (this._subscribes[channel]) {
+      cbIdx = this._subscribes[channel].indexOf(cb)
+    }
+    if (cbIdx < 0) {
+      this.subscribe(channel, cb)
+    }
+    this.send(MessageCmdBiz, message)
   }
 
   /**
@@ -373,7 +389,8 @@ class WsPackage {
   }
 
   public encode(): ArrayBuffer {
-    this.len = 16 + this.message.length
+    let msgbuf = new TextEncoder().encode(this.message)
+    this.len = 16 + msgbuf.length
     let buf = new Uint8Array(this.len)
     let hdr = new ArrayBuffer(16)
     const view = new DataView(hdr, 0, 16)
@@ -383,7 +400,6 @@ class WsPackage {
     view.setUint8(7, this.flag)
     view.setUint32(8, this.seq, false)
     view.setUint32(12, this.crc, false)
-    let msgbuf = new TextEncoder().encode(this.message)
     buf.set(new Uint8Array(hdr), 0)
     buf.set(msgbuf, 16)
     // console.log('serialized data', this.len, buf)
