@@ -142,16 +142,16 @@ class WSClient {
      * Subscribe a channel
      * @param channel
      * @param cb
+     * @param isCallOnce defaults true, if callback once, the subscribed callback function would be unsubscribed
      */
-    subscribe(channel, cb) {
+    subscribe(channel, cb, isCallOnce = true) {
         if (this._subscribes[channel]) {
-            const idx = this._subscribes[channel].indexOf(cb);
-            if (idx < 0) {
-                this._subscribes[channel].push(cb);
+            if (this._getCallbackIndex(this._subscribes[channel], cb) < 0) {
+                this._subscribes[channel].push(new CallbackWrapper(cb, isCallOnce));
             }
         }
         else {
-            this._subscribes[channel] = [cb];
+            this._subscribes[channel] = [new CallbackWrapper(cb, isCallOnce)];
         }
     }
     /**
@@ -161,7 +161,7 @@ class WSClient {
      */
     unsubscribe(channel, cb) {
         if (this._subscribes[channel]) {
-            const idx = this._subscribes[channel].indexOf(cb);
+            const idx = this._getCallbackIndex(this._subscribes[channel], cb);
             if (idx >= 0) {
                 this._subscribes[channel].splice(idx, 1);
                 if (this._subscribes[channel].length <= 0) {
@@ -223,10 +223,10 @@ class WSClient {
     sendWithCallback(message, channel, cb) {
         let cbIdx = -1;
         if (this._subscribes[channel]) {
-            cbIdx = this._subscribes[channel].indexOf(cb);
+            cbIdx = this._getCallbackIndex(this._subscribes[channel], cb);
         }
         if (cbIdx < 0) {
-            this.subscribe(channel, cb);
+            this.subscribe(channel, cb, true);
         }
         this.send(MessageCmdBiz, message);
     }
@@ -321,6 +321,9 @@ class WSClient {
     }
     _on_received_data(data) {
         console.log('received data', data);
+        if ('pong' === data) {
+            return;
+        }
         let msg = {};
         const inst = WSClient.instance();
         try {
@@ -348,8 +351,16 @@ class WSClient {
             // emmits
             let channelField = inst._subscribingChannelMessageField;
             if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
-                inst._subscribes[msg[channelField]].forEach(cb => {
-                    cb(msg);
+                inst._subscribes[msg[channelField]].forEach((cbWrapper, idx, cbsArray) => {
+                    if (cbWrapper.cb) {
+                        cbWrapper.cb(msg);
+                    }
+                    if (cbWrapper.isCallOnce) {
+                        cbsArray.splice(idx, 1);
+                        if (cbsArray.length <= 0) {
+                            delete inst._subscribes[msg[channelField]];
+                        }
+                    }
                 });
             }
         }
@@ -359,6 +370,16 @@ class WSClient {
             clearInterval(this._heartbeatTimer);
             this._heartbeatTimer = 0;
         }
+    }
+    _getCallbackIndex(subscribes, cb) {
+        let idx = -1;
+        for (let i = 0; i < subscribes.length; i++) {
+            if (subscribes[i].cb === cb) {
+                idx = i;
+                break;
+            }
+        }
+        return idx;
     }
 }
 exports.WSClient = WSClient;
@@ -402,6 +423,14 @@ class WsPackage {
         this.crc = view.getUint32(12, false);
         this.message = new TextDecoder('utf-8').decode(payload.slice(16));
         return true;
+    }
+}
+class CallbackWrapper {
+    constructor(cb, isCallOnce = true) {
+        this.cb = null;
+        this.isCallOnce = false;
+        this.cb = cb;
+        this.isCallOnce = isCallOnce;
     }
 }
 //# sourceMappingURL=wsclient.js.map

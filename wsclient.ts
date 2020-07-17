@@ -24,7 +24,7 @@ class WSClient {
   private _heartbeatTimer : number = 0;
   private _heartbeatIntervalSeconds : number = 30;
   private _reconnectInteervalSeconds : number = 1;
-  private _subscribes: { [key: string]: Function[] } = {};
+  private _subscribes: { [key: string]: CallbackWrapper[] } = {};
   private _agentType: number = AgentTypeWeb;
   private _agentText: string = 'web';
   private _bizCodeLogin: string = 'a1001';
@@ -148,15 +148,15 @@ class WSClient {
    * Subscribe a channel
    * @param channel 
    * @param cb 
+   * @param isCallOnce defaults true, if callback once, the subscribed callback function would be unsubscribed
    */
-  public subscribe(channel: string, cb: Function) {
+  public subscribe(channel: string, cb: Function, isCallOnce: boolean = true) {
     if (this._subscribes[channel]) {
-      const idx = this._subscribes[channel].indexOf(cb)
-      if (idx < 0) {
-        this._subscribes[channel].push(cb)
+      if (this._getCallbackIndex(this._subscribes[channel], cb) < 0) {
+        this._subscribes[channel].push(new CallbackWrapper(cb, isCallOnce))
       }
     } else {
-      this._subscribes[channel] = [cb]
+      this._subscribes[channel] = [new CallbackWrapper(cb, isCallOnce)]
     }
   }
 
@@ -167,7 +167,7 @@ class WSClient {
    */
   public unsubscribe(channel: string, cb: Function) {
     if (this._subscribes[channel]) {
-      const idx = this._subscribes[channel].indexOf(cb)
+      const idx = this._getCallbackIndex(this._subscribes[channel], cb)
       if (idx >= 0) {
         this._subscribes[channel].splice(idx, 1)
         if (this._subscribes[channel].length <= 0) {
@@ -229,13 +229,19 @@ class WSClient {
     this._ws.send(buf)
   }
 
+  /**
+   * Send a business message using default MessageCmdBiz message cmd and subscribes a callback function for callback once
+   * @param message 
+   * @param channel 
+   * @param cb 
+   */
   public sendWithCallback(message: any, channel: string, cb: Function) {
     let cbIdx: number = -1
     if (this._subscribes[channel]) {
-      cbIdx = this._subscribes[channel].indexOf(cb)
+      cbIdx = this._getCallbackIndex(this._subscribes[channel], cb)
     }
     if (cbIdx < 0) {
-      this.subscribe(channel, cb)
+      this.subscribe(channel, cb, true)
     }
     this.send(MessageCmdBiz, message)
   }
@@ -336,6 +342,9 @@ class WSClient {
 
   private _on_received_data(data: any) {
     console.log('received data', data)
+    if ('pong' === data) {
+      return
+    }
     let msg: any = {}
     const inst = WSClient.instance()
     try {
@@ -362,8 +371,16 @@ class WSClient {
       // emmits
       let channelField = inst._subscribingChannelMessageField
       if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
-        inst._subscribes[msg[channelField]].forEach(cb => {
-          cb(msg)
+        inst._subscribes[msg[channelField]].forEach((cbWrapper: CallbackWrapper, idx: number, cbsArray: CallbackWrapper[]) => {
+          if (cbWrapper.cb) {
+            cbWrapper.cb(msg)
+          }
+          if (cbWrapper.isCallOnce) {
+            cbsArray.splice(idx, 1)
+            if (cbsArray.length <= 0) {
+              delete inst._subscribes[msg[channelField]]
+            }
+          }
         });
       }
     }
@@ -374,6 +391,17 @@ class WSClient {
       clearInterval(this._heartbeatTimer)
       this._heartbeatTimer = 0
     }
+  }
+
+  private _getCallbackIndex(subscribes: CallbackWrapper[], cb: Function): number {
+    let idx: number = -1
+    for (let i: number = 0; i < subscribes.length; i++) {
+      if (subscribes[i].cb === cb) {
+        idx = i
+        break
+      }
+    }
+    return idx
   }
 
 }
@@ -422,6 +450,16 @@ class WsPackage {
     this.crc = view.getUint32(12, false)
     this.message = new TextDecoder('utf-8').decode(payload.slice(16))
     return true
+  }
+}
+
+class CallbackWrapper {
+  public cb: Function | null = null;
+  public isCallOnce: boolean = false;
+
+  constructor(cb: Function, isCallOnce: boolean = true) {
+    this.cb = cb
+    this.isCallOnce = isCallOnce
   }
 }
 
