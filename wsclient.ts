@@ -323,8 +323,14 @@ class WSClient {
       }).catch((e: any) => {
         console.log('read received message failed with error', e)
       })
-    } else {
+    } else if (typeof (ev.data) === 'string') {
       inst._on_received_data(ev.data)
+    } else {
+      let reader: FileReader = new FileReader()
+      reader.readAsText(ev.data, 'utf-8')
+      reader.onload = function (e) {
+        inst._on_received_data(reader.result)
+      }
     }
   }
 
