@@ -2,25 +2,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MessageCmdLogout = exports.MessageCmdLogin = exports.MessageCmdPING = exports.AgentTypeNWWeb = exports.AgentTypeApp = exports.AgentTypeWeb = exports.WSClient = void 0;
-const AgentTypeWeb = 0;
+var AgentTypeWeb = 0;
 exports.AgentTypeWeb = AgentTypeWeb;
-const AgentTypeApp = 1;
+var AgentTypeApp = 1;
 exports.AgentTypeApp = AgentTypeApp;
-const AgentTypeNWWeb = 2;
+var AgentTypeNWWeb = 2;
 exports.AgentTypeNWWeb = AgentTypeNWWeb;
-const MessageCmdPING = 100;
+var MessageCmdPING = 100;
 exports.MessageCmdPING = MessageCmdPING;
-const MessageCmdLogin = 102;
+var MessageCmdLogin = 102;
 exports.MessageCmdLogin = MessageCmdLogin;
-const MessageCmdLogout = 103;
+var MessageCmdLogout = 103;
 exports.MessageCmdLogout = MessageCmdLogout;
-const MessageCmdBiz = 200;
-const ResultCodeSuccess = 0;
+var MessageCmdBiz = 200;
+var ResultCodeSuccess = 0;
 /**
  * WebSocket client wrapper
  */
-class WSClient {
-    constructor() {
+var WSClient = /** @class */ (function () {
+    function WSClient() {
         this._ws = null;
         this._url = '';
         this._accountInfo = {
@@ -63,50 +63,50 @@ class WSClient {
     /**
      * singleton instance
      */
-    static instance() {
+    WSClient.instance = function () {
         if (WSClient._instance) {
             return WSClient._instance;
         }
         WSClient._instance = new WSClient();
         return WSClient._instance;
-    }
+    };
     /**
      * initialize WebSocket client with agent type
      * @param agentType agent type
      * @param agentText agent text
      */
-    init(agentType, agentText) {
+    WSClient.prototype.init = function (agentType, agentText) {
         this._agentType = agentType;
         this._agentText = agentText;
-    }
+    };
     /**
      * Enabling wrapping package head or not
      * @param enabled boolean
      */
-    enablePackageHead(enabled) {
+    WSClient.prototype.enablePackageHead = function (enabled) {
         this._enablePackageHead = enabled;
-    }
+    };
     /**
      * Set codes got responsed from server that should skip reconnecting on close
      * @param codes array of number
      */
-    setSkipReconnectingCodes(codes) {
+    WSClient.prototype.setSkipReconnectingCodes = function (codes) {
         this._skipReconnectingCodes = codes;
-    }
+    };
     /**
      * Set field name for message to detect callback function subscribed by channel
      * @param channelField
      */
-    setSubscribingChannelMessageField(channelField) {
+    WSClient.prototype.setSubscribingChannelMessageField = function (channelField) {
         this._subscribingChannelMessageField = channelField;
-    }
+    };
     /**
      * Opening a websocket connection, if the connection were established or connecting,
      * it would do the recoonect operation.
      * @param url websocket url
      * @param accountInfo
      */
-    open(url, accountInfo) {
+    WSClient.prototype.open = function (url, accountInfo) {
         this._url = url;
         this._accountInfo = accountInfo;
         if (this._ws) {
@@ -114,19 +114,19 @@ class WSClient {
         }
         console.log('opening', this._url);
         this._open();
-    }
+    };
     /**
      * Reconnect the websocket connection
      */
-    reconnect() {
+    WSClient.prototype.reconnect = function () {
         console.log('reconnecting to', this._url);
         this.close();
         this._open();
-    }
+    };
     /**
      * Close the websocket connection
      */
-    close() {
+    WSClient.prototype.close = function () {
         if (this._ws) {
             this._ws.onopen = null;
             this._ws.onmessage = null;
@@ -138,14 +138,15 @@ class WSClient {
             }
             this._ws = null;
         }
-    }
+    };
     /**
      * Subscribe a channel
      * @param channel
      * @param cb
      * @param isCallOnce defaults true, if callback once, the subscribed callback function would be unsubscribed
      */
-    subscribe(channel, cb, isCallOnce = true) {
+    WSClient.prototype.subscribe = function (channel, cb, isCallOnce) {
+        if (isCallOnce === void 0) { isCallOnce = true; }
         if (this._subscribes[channel]) {
             if (this._getCallbackIndex(this._subscribes[channel], cb) < 0) {
                 this._subscribes[channel].push(new CallbackWrapper(cb, isCallOnce));
@@ -154,15 +155,15 @@ class WSClient {
         else {
             this._subscribes[channel] = [new CallbackWrapper(cb, isCallOnce)];
         }
-    }
+    };
     /**
      * Unsubscribe a channel registered callback
      * @param channel
      * @param cb
      */
-    unsubscribe(channel, cb) {
+    WSClient.prototype.unsubscribe = function (channel, cb) {
         if (this._subscribes[channel]) {
-            const idx = this._getCallbackIndex(this._subscribes[channel], cb);
+            var idx = this._getCallbackIndex(this._subscribes[channel], cb);
             if (idx >= 0) {
                 this._subscribes[channel].splice(idx, 1);
                 if (this._subscribes[channel].length <= 0) {
@@ -170,48 +171,48 @@ class WSClient {
                 }
             }
         }
-    }
+    };
     /**
      * Send login data
      * @param accountInfo
      */
-    login(accountInfo) {
-        let msg = {
+    WSClient.prototype.login = function (accountInfo) {
+        var msg = {
             requestId: 'id-login',
             userAgent: this._agentText,
             bizCode: this._bizCodeLogin,
             data: accountInfo
         };
         this.send(MessageCmdLogin, msg);
-    }
+    };
     /**
      * Send logout data
      */
-    logout() {
-        let msg = {
+    WSClient.prototype.logout = function () {
+        var msg = {
             requestId: 'id-logout',
             userAgent: this._agentText,
             bizCode: this._bizCodeLogout,
         };
         this.send(MessageCmdLogout, msg);
-    }
+    };
     /**
      * Send biz data
      * @param cmd operation code
      * @param message
      */
-    send(cmd, message) {
+    WSClient.prototype.send = function (cmd, message) {
         if (typeof (message) !== 'string') {
             message = JSON.stringify(message);
         }
-        let buf;
+        var buf;
         if (this._enablePackageHead) {
             this._sequenceNumber++;
-            let wspkg = new WsPackage(cmd, this._agentType, this._sequenceNumber, message);
+            var wspkg = new WsPackage(cmd, this._agentType, this._sequenceNumber, message);
             buf = wspkg.encode();
         }
         else {
-            let msgbuf = new TextEncoder().encode(message);
+            var msgbuf = new TextEncoder().encode(message);
             buf = msgbuf;
         }
         if (null === this._ws || this._ws.readyState != WebSocket.OPEN) {
@@ -220,9 +221,15 @@ class WSClient {
             return;
         }
         this._ws.send(buf);
-    }
-    sendWithCallback(message, channel, cb) {
-        let cbIdx = -1;
+    };
+    /**
+     * Send a business message using default MessageCmdBiz message cmd and subscribes a callback function for callback once
+     * @param message
+     * @param channel
+     * @param cb
+     */
+    WSClient.prototype.sendWithCallback = function (message, channel, cb) {
+        var cbIdx = -1;
         if (this._subscribes[channel]) {
             cbIdx = this._getCallbackIndex(this._subscribes[channel], cb);
         }
@@ -230,62 +237,62 @@ class WSClient {
             this.subscribe(channel, cb, true);
         }
         this.send(MessageCmdBiz, message);
-    }
+    };
     /**
      * Send ping data to keepalive from server
      * @param data
      */
-    ping(data) {
+    WSClient.prototype.ping = function (data) {
         this.send(MessageCmdPING, 'ping');
-    }
+    };
     /**
      * Set bizcode for login package
      * @param bizCode
      */
-    setLoginBizCode(bizCode) {
+    WSClient.prototype.setLoginBizCode = function (bizCode) {
         this._bizCodeLogin = bizCode;
-    }
+    };
     /**
      * Set bizcode for logout package
      * @param bizCode
      */
-    setLogoutBizCode(bizCode) {
+    WSClient.prototype.setLogoutBizCode = function (bizCode) {
         this._bizCodeLogout = bizCode;
-    }
-    _open() {
+    };
+    WSClient.prototype._open = function () {
         this._ws = new WebSocket(this._url);
         this._ws.onopen = this._onopen;
         this._ws.onmessage = this._onmessage;
         this._ws.onclose = this._onclose;
         this._ws.onerror = this._onerror;
-    }
-    _onopen(ev) {
+    };
+    WSClient.prototype._onopen = function (ev) {
         console.log('websocket connection established.');
-        const inst = WSClient.instance();
+        var inst = WSClient.instance();
         inst._sequenceNumber = 0;
         inst.login(inst._accountInfo);
-        inst._heartbeatTimer = setInterval(() => {
+        inst._heartbeatTimer = setInterval(function () {
             inst.ping('ping');
         }, inst._heartbeatIntervalSeconds * 1000);
         if (inst._cachedPackages.length) {
-            inst._cachedPackages.forEach((buf) => {
+            inst._cachedPackages.forEach(function (buf) {
                 var _a;
                 (_a = inst._ws) === null || _a === void 0 ? void 0 : _a.send(buf);
             });
         }
-    }
-    _onerror(ev) {
+    };
+    WSClient.prototype._onerror = function (ev) {
         console.log('websocket connection broken with error', ev);
-        const inst = WSClient.instance();
-        setTimeout(() => {
+        var inst = WSClient.instance();
+        setTimeout(function () {
             inst.reconnect();
         }, inst._reconnectInteervalSeconds * 1000);
-    }
-    _onclose(ev) {
+    };
+    WSClient.prototype._onclose = function (ev) {
         console.log('websocket connection closed with error', ev);
-        const inst = WSClient.instance();
-        let reconnecting = true;
-        inst._skipReconnectingCodes.forEach((code) => {
+        var inst = WSClient.instance();
+        var reconnecting = true;
+        inst._skipReconnectingCodes.forEach(function (code) {
             if (code === inst._lastResponseCode) {
                 console.log('skip reconnecting.');
                 reconnecting = false;
@@ -294,18 +301,18 @@ class WSClient {
             }
         });
         if (reconnecting) {
-            setTimeout(() => {
+            setTimeout(function () {
                 inst.reconnect();
             }, inst._reconnectInteervalSeconds * 1000);
         }
-    }
-    _onmessage(ev) {
+    };
+    WSClient.prototype._onmessage = function (ev) {
         // console.log('receiving data', ev.data)
-        const inst = WSClient.instance();
+        var inst = WSClient.instance();
         if (ev.data.text) {
-            ev.data.text().then((data) => {
+            ev.data.text().then(function (data) {
                 inst._on_received_data(data);
-            }).catch((e) => {
+            }).catch(function (e) {
                 console.log('read received message failed with error', e);
             });
         }
@@ -313,20 +320,20 @@ class WSClient {
             inst._on_received_data(ev.data);
         }
         else {
-            let reader = new FileReader();
-            reader.readAsText(ev.data, 'utf-8');
-            reader.onload = function (e) {
-                inst._on_received_data(reader.result);
+            var reader_1 = new FileReader();
+            reader_1.readAsText(ev.data, 'utf-8');
+            reader_1.onload = function (e) {
+                inst._on_received_data(reader_1.result);
             };
         }
-    }
-    _on_received_data(data) {
+    };
+    WSClient.prototype._on_received_data = function (data) {
         console.log('received data', data);
         if ('pong' === data) {
             return;
         }
-        let msg = {};
-        const inst = WSClient.instance();
+        var msg = {};
+        var inst = WSClient.instance();
         try {
             msg = JSON.parse(data);
         }
@@ -338,7 +345,7 @@ class WSClient {
             if (msg.code === 0) {
                 if (typeof (msg.data) === 'string') {
                     try {
-                        let msgData = JSON.parse(msg.data);
+                        var msgData = JSON.parse(msg.data);
                         msg.data = msgData;
                     }
                     catch (e) {
@@ -350,42 +357,43 @@ class WSClient {
                 console.log('received message failed with code', msg.code, msg.message);
             }
             // emmits
-            let channelField = inst._subscribingChannelMessageField;
-            if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
-                inst._subscribes[msg[channelField]].forEach((cbWrapper, idx, cbsArray) => {
+            var channelField_1 = inst._subscribingChannelMessageField;
+            if (msg[channelField_1] !== undefined && inst._subscribes[msg[channelField_1]]) {
+                inst._subscribes[msg[channelField_1]].forEach(function (cbWrapper, idx, cbsArray) {
                     if (cbWrapper.cb) {
                         cbWrapper.cb(msg);
                     }
                     if (cbWrapper.isCallOnce) {
                         cbsArray.splice(idx, 1);
                         if (cbsArray.length <= 0) {
-                            delete inst._subscribes[msg[channelField]];
+                            delete inst._subscribes[msg[channelField_1]];
                         }
                     }
                 });
             }
         }
-    }
-    _closeHeartbeat() {
+    };
+    WSClient.prototype._closeHeartbeat = function () {
         if (this._heartbeatTimer) {
             clearInterval(this._heartbeatTimer);
             this._heartbeatTimer = 0;
         }
-    }
-    _getCallbackIndex(subscribes, cb) {
-        let idx = -1;
-        for (let i = 0; i < subscribes.length; i++) {
+    };
+    WSClient.prototype._getCallbackIndex = function (subscribes, cb) {
+        var idx = -1;
+        for (var i = 0; i < subscribes.length; i++) {
             if (subscribes[i].cb === cb) {
                 idx = i;
                 break;
             }
         }
         return idx;
-    }
-}
+    };
+    return WSClient;
+}());
 exports.WSClient = WSClient;
-class WsPackage {
-    constructor(cmd, agent, seq, message) {
+var WsPackage = /** @class */ (function () {
+    function WsPackage(cmd, agent, seq, message) {
         this.len = 0;
         this.cmd = 0;
         this.agent = 0;
@@ -397,12 +405,12 @@ class WsPackage {
         this.seq = seq;
         this.message = message;
     }
-    encode() {
-        let msgbuf = new TextEncoder().encode(this.message);
+    WsPackage.prototype.encode = function () {
+        var msgbuf = new TextEncoder().encode(this.message);
         this.len = 16 + msgbuf.length;
-        let buf = new Uint8Array(this.len);
-        let hdr = new ArrayBuffer(16);
-        const view = new DataView(hdr, 0, 16);
+        var buf = new Uint8Array(this.len);
+        var hdr = new ArrayBuffer(16);
+        var view = new DataView(hdr, 0, 16);
         view.setUint32(0, this.len, false);
         view.setUint16(4, this.cmd, false);
         view.setUint8(6, this.agent);
@@ -413,9 +421,9 @@ class WsPackage {
         buf.set(msgbuf, 16);
         // console.log('serialized data', this.len, buf)
         return buf.buffer;
-    }
-    decode(payload) {
-        const view = new DataView(payload);
+    };
+    WsPackage.prototype.decode = function (payload) {
+        var view = new DataView(payload);
         this.len = view.getUint32(0, false);
         this.cmd = view.getUint16(4, false);
         this.agent = view.getUint8(6);
@@ -424,16 +432,19 @@ class WsPackage {
         this.crc = view.getUint32(12, false);
         this.message = new TextDecoder('utf-8').decode(payload.slice(16));
         return true;
-    }
-}
-class CallbackWrapper {
-    constructor(cb, isCallOnce = true) {
+    };
+    return WsPackage;
+}());
+var CallbackWrapper = /** @class */ (function () {
+    function CallbackWrapper(cb, isCallOnce) {
+        if (isCallOnce === void 0) { isCallOnce = true; }
         this.cb = null;
         this.isCallOnce = false;
         this.cb = cb;
         this.isCallOnce = isCallOnce;
     }
-}
+    return CallbackWrapper;
+}());
 
 },{}],2:[function(require,module,exports){
 const { WSClient, AgentTypeWeb } = require('../dist/wsclient')
