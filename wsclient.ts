@@ -35,6 +35,7 @@ class WSClient {
   private _skipReconnectingCodes: number[] = [];
   private _lastResponseCode: number = 0;
   private _subscribingChannelMessageField: string = 'bizCode';
+  private _onCloseListener: Function|null = null;
 
   constructor() {
     this._accountInfo = {
@@ -55,6 +56,7 @@ class WSClient {
     this._skipReconnectingCodes = [];
     this._lastResponseCode = 0;
     this._subscribingChannelMessageField = 'bizCode';
+    this._onCloseListener = null
   }
 
   /**
@@ -100,6 +102,14 @@ class WSClient {
    */
   public setSubscribingChannelMessageField(channelField: string) {
     this._subscribingChannelMessageField = channelField
+  }
+
+  /**
+   * Set callback function that could process return to login page when connection closed without reconnecting
+   * @param cb function that could process return to login page when connection closed without reconnecting
+   */
+  public setOnCloseListener(cb: Function) {
+    this._onCloseListener = cb
   }
 
   /**
@@ -310,6 +320,9 @@ class WSClient {
         console.log('skip reconnecting.')
         reconnecting = false
         inst._closeHeartbeat()
+        if (null !== inst._onCloseListener) {
+          inst._onCloseListener()
+        }
         return
       }
     })

@@ -40,6 +40,7 @@ var WSClient = /** @class */ (function () {
         this._skipReconnectingCodes = [];
         this._lastResponseCode = 0;
         this._subscribingChannelMessageField = 'bizCode';
+        this._onCloseListener = null;
         this._accountInfo = {
             username: '',
             password: '',
@@ -58,6 +59,7 @@ var WSClient = /** @class */ (function () {
         this._skipReconnectingCodes = [];
         this._lastResponseCode = 0;
         this._subscribingChannelMessageField = 'bizCode';
+        this._onCloseListener = null;
     }
     /**
      * singleton instance
@@ -98,6 +100,13 @@ var WSClient = /** @class */ (function () {
      */
     WSClient.prototype.setSubscribingChannelMessageField = function (channelField) {
         this._subscribingChannelMessageField = channelField;
+    };
+    /**
+     * Set callback function that could process return to login page when connection closed without reconnecting
+     * @param cb function that could process return to login page when connection closed without reconnecting
+     */
+    WSClient.prototype.setOnCloseListener = function (cb) {
+        this._onCloseListener = cb;
     };
     /**
      * Opening a websocket connection, if the connection were established or connecting,
@@ -296,6 +305,9 @@ var WSClient = /** @class */ (function () {
                 console.log('skip reconnecting.');
                 reconnecting = false;
                 inst._closeHeartbeat();
+                if (null !== inst._onCloseListener) {
+                    inst._onCloseListener();
+                }
                 return;
             }
         });
