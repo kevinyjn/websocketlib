@@ -306,7 +306,7 @@ var WSClient = /** @class */ (function () {
                 reconnecting = false;
                 inst._closeHeartbeat();
                 if (null !== inst._onDisconnectedListener) {
-                    inst._onDisconnectedListener();
+                    inst._onDisconnectedListener(code);
                 }
                 return;
             }
