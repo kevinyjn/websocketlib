@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MessageCmdLogout = exports.MessageCmdLogin = exports.MessageCmdPING = exports.AgentTypeNWWeb = exports.AgentTypeApp = exports.AgentTypeWeb = exports.WSClient = void 0;
+exports.ResultCodeSuccess = exports.MessageCmdBiz = exports.MessageCmdLogout = exports.MessageCmdLogin = exports.MessageCmdPING = exports.AgentTypeNWWeb = exports.AgentTypeApp = exports.AgentTypeWeb = exports.WSClient = void 0;
 var AgentTypeWeb = 0;
 exports.AgentTypeWeb = AgentTypeWeb;
 var AgentTypeApp = 1;
@@ -14,7 +14,9 @@ exports.MessageCmdLogin = MessageCmdLogin;
 var MessageCmdLogout = 103;
 exports.MessageCmdLogout = MessageCmdLogout;
 var MessageCmdBiz = 200;
+exports.MessageCmdBiz = MessageCmdBiz;
 var ResultCodeSuccess = 0;
+exports.ResultCodeSuccess = ResultCodeSuccess;
 /**
  * WebSocket client wrapper
  */

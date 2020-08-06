@@ -483,5 +483,7 @@ export {
   AgentTypeNWWeb,
   MessageCmdPING,
   MessageCmdLogin,
-  MessageCmdLogout
+  MessageCmdLogout,
+  MessageCmdBiz,
+  ResultCodeSuccess
 }
