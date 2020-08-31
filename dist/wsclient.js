@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ResultCodeSuccess = exports.MessageCmdBiz = exports.MessageCmdLogout = exports.MessageCmdLogin = exports.MessageCmdPING = exports.AgentTypeNWWeb = exports.AgentTypeApp = exports.AgentTypeWeb = exports.WSClient = void 0;
+exports.ResultCodeSuccess = exports.MessageCmdBiz = exports.MessageCmdLogout = exports.MessageCmdLogin = exports.MessageCmdServerTime = exports.MessageCmdPING = exports.AgentTypeNWWeb = exports.AgentTypeApp = exports.AgentTypeWeb = exports.WSClient = void 0;
 var AgentTypeWeb = 0;
 exports.AgentTypeWeb = AgentTypeWeb;
 var AgentTypeApp = 1;
@@ -9,6 +9,8 @@ var AgentTypeNWWeb = 2;
 exports.AgentTypeNWWeb = AgentTypeNWWeb;
 var MessageCmdPING = 100;
 exports.MessageCmdPING = MessageCmdPING;
+var MessageCmdServerTime = 101;
+exports.MessageCmdServerTime = MessageCmdServerTime;
 var MessageCmdLogin = 102;
 exports.MessageCmdLogin = MessageCmdLogin;
 var MessageCmdLogout = 103;

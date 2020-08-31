@@ -4,6 +4,7 @@ const AgentTypeApp: number = 1;
 const AgentTypeNWWeb: number = 2;
 
 const MessageCmdPING: number = 100;
+const MessageCmdServerTime: number = 101;
 const MessageCmdLogin: number = 102;
 const MessageCmdLogout: number = 103;
 const MessageCmdBiz: number = 200;
@@ -509,6 +510,7 @@ export {
   AgentTypeApp,
   AgentTypeNWWeb,
   MessageCmdPING,
+  MessageCmdServerTime,
   MessageCmdLogin,
   MessageCmdLogout,
   MessageCmdBiz,
