@@ -438,6 +438,7 @@ class WsPackage {
   public encode(): ArrayBuffer {
     let msgbuf = new TextEncoder().encode(this.message)
     this.len = 16 + msgbuf.length
+    this.crc = crc32(this.message)
     let buf = new Uint8Array(this.len)
     let hdr = new ArrayBuffer(16)
     const view = new DataView(hdr, 0, 16)
@@ -464,6 +465,32 @@ class WsPackage {
     this.message = new TextDecoder('utf-8').decode(payload.slice(16))
     return true
   }
+}
+
+const makeCRCTable = function(): number[] {
+  let c: number;
+  let crcTable: number[] = [];
+  for(let n: number = 0; n < 256; n++){
+      c = n;
+      for(let k: number = 0; k < 8; k++){
+          c = ((c&1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+      }
+      crcTable[n] = c;
+  }
+  return crcTable
+}
+
+let gCrcTable: number[] = makeCRCTable()
+
+const crc32 = function(str: string): number {
+  let crcTable: number[] = gCrcTable || (gCrcTable = makeCRCTable());
+  let crc: number = 0 ^ (-1);
+
+  for (let i: number = 0; i < str.length; i++ ) {
+    crc = (crc >>> 8) ^ crcTable[(crc ^ str.charCodeAt(i)) & 0xFF];
+  }
+
+  return (crc ^ (-1)) >>> 0;
 }
 
 class CallbackWrapper {

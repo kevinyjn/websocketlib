@@ -422,6 +422,7 @@ var WsPackage = /** @class */ (function () {
     WsPackage.prototype.encode = function () {
         var msgbuf = new TextEncoder().encode(this.message);
         this.len = 16 + msgbuf.length;
+        this.crc = crc32(this.message);
         var buf = new Uint8Array(this.len);
         var hdr = new ArrayBuffer(16);
         var view = new DataView(hdr, 0, 16);
@@ -449,6 +450,27 @@ var WsPackage = /** @class */ (function () {
     };
     return WsPackage;
 }());
+var makeCRCTable = function () {
+    var c;
+    var crcTable = [];
+    for (var n = 0; n < 256; n++) {
+        c = n;
+        for (var k = 0; k < 8; k++) {
+            c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+        }
+        crcTable[n] = c;
+    }
+    return crcTable;
+};
+var gCrcTable = makeCRCTable();
+var crc32 = function (str) {
+    var crcTable = gCrcTable || (gCrcTable = makeCRCTable());
+    var crc = 0 ^ (-1);
+    for (var i = 0; i < str.length; i++) {
+        crc = (crc >>> 8) ^ crcTable[(crc ^ str.charCodeAt(i)) & 0xFF];
+    }
+    return (crc ^ (-1)) >>> 0;
+};
 var CallbackWrapper = /** @class */ (function () {
     function CallbackWrapper(cb, isCallOnce) {
         if (isCallOnce === void 0) { isCallOnce = true; }
@@ -472,7 +494,7 @@ const testInit = (username, password) => {
     wsInst.setSkipReconnectingCodes([19014])
     wsInst.subscribe('a1001', onLogin)
     wsInst.subscribe('a1003', onLogout)
-    wsInst.open('ws://192.168.31.175:8036/ws/index', {username: username, password: password})
+    wsInst.open('ws://127.0.0.1:8036/ws/index', {username: username, password: password})
     wsInst.ping('ping')
 
     // WSClient.instance().subscribe('a1005', onServerTime)

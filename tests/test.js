@@ -9,7 +9,7 @@ const testInit = (username, password) => {
     wsInst.setSkipReconnectingCodes([19014])
     wsInst.subscribe('a1001', onLogin)
     wsInst.subscribe('a1003', onLogout)
-    wsInst.open('ws://192.168.31.175:8036/ws/index', {username: username, password: password})
+    wsInst.open('ws://127.0.0.1:8036/ws/index', {username: username, password: password})
     wsInst.ping('ping')
 
     // WSClient.instance().subscribe('a1005', onServerTime)
