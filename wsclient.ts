@@ -15,48 +15,52 @@ const ResultCodeSuccess: number = 0;
  * WebSocket client wrapper
  */
 class WSClient {
-  private static _instance : WSClient;
-  private _ws : WebSocket | null = null;
-  private _url : string = '';
+  private static _instance : WSClient
+  private _ws : WebSocket | null = null
+  private _url : string = ''
   private _accountInfo : {[key: string]: string} = {
     username: '',
     password: '',
-  };
-  private _heartbeatTimer : number = 0;
-  private _heartbeatIntervalSeconds : number = 30;
-  private _reconnectInteervalSeconds : number = 1;
-  private _subscribes: { [key: string]: CallbackWrapper[] } = {};
-  private _agentType: number = AgentTypeWeb;
-  private _agentText: string = 'web';
-  private _bizCodeLogin: string = 'a1001';
-  private _bizCodeLogout: string = 'a1003';
-  private _sequenceNumber: number = 0;
-  private _cachedPackages: ArrayBuffer[] = [];
-  private _enablePackageHead: boolean = false;
-  private _skipReconnectingCodes: number[] = [];
-  private _lastResponseCode: number = 0;
-  private _subscribingChannelMessageField: string = 'bizCode';
-  private _onDisconnectedListener: Function|null = null;
+  }
+  private _heartbeatTimer : number = 0
+  private _heartbeatIntervalSeconds : number = 30
+  private _reconnectInteervalSeconds : number = 1
+  private _subscribes: { [key: string]: CallbackWrapper[] } = {}
+  private _agentType: number = AgentTypeWeb
+  private _agentText: string = 'web'
+  private _messageCmdLogin: number = MessageCmdLogin
+  private _messageCmdLogout: number = MessageCmdLogout
+  private _bizCodeLogin: string = 'a1001'
+  private _bizCodeLogout: string = 'a1003'
+  private _sequenceNumber: number = 0
+  private _cachedPackages: ArrayBuffer[] = []
+  private _enablePackageHead: boolean = false
+  private _skipReconnectingCodes: number[] = []
+  private _lastResponseCode: number = 0
+  private _subscribingChannelMessageField: string = 'bizCode'
+  private _onDisconnectedListener: Function|null = null
 
   constructor() {
     this._accountInfo = {
       username: '',
       password: '',
     }
-    this._heartbeatTimer = 0;
-    this._heartbeatIntervalSeconds = 30;
-    this._reconnectInteervalSeconds = 1;
-    this._subscribes = {};
-    this._agentType = AgentTypeWeb;
+    this._heartbeatTimer = 0
+    this._heartbeatIntervalSeconds = 30
+    this._reconnectInteervalSeconds = 1
+    this._subscribes = {}
+    this._agentType = AgentTypeWeb
     this._agentText = 'web'
-    this._bizCodeLogin = 'a1001';
-    this._bizCodeLogout = 'a1003';
-    this._sequenceNumber = 0;
-    this._cachedPackages = [];
-    this._enablePackageHead = false;
-    this._skipReconnectingCodes = [];
-    this._lastResponseCode = 0;
-    this._subscribingChannelMessageField = 'bizCode';
+    this._messageCmdLogin = MessageCmdLogin
+    this._messageCmdLogout = MessageCmdLogout
+    this._bizCodeLogin = 'a1001'
+    this._bizCodeLogout = 'a1003'
+    this._sequenceNumber = 0
+    this._cachedPackages = []
+    this._enablePackageHead = false
+    this._skipReconnectingCodes = []
+    this._lastResponseCode = 0
+    this._subscribingChannelMessageField = 'bizCode'
     this._onDisconnectedListener = null
   }
 
@@ -199,7 +203,7 @@ class WSClient {
       bizCode: this._bizCodeLogin,
       data: accountInfo
     }
-    this.send(MessageCmdLogin, msg)
+    this.send(this._messageCmdLogin, msg)
   }
 
   /**
@@ -211,7 +215,7 @@ class WSClient {
       userAgent: this._agentText,
       bizCode: this._bizCodeLogout,
     }
-    this.send(MessageCmdLogout, msg)
+    this.send(this._messageCmdLogout, msg)
   }
 
   /**
@@ -263,6 +267,22 @@ class WSClient {
    */
   public ping(data: string) {
     this.send(MessageCmdPING, 'ping')
+  }
+
+  /**
+   * Set message cmd field value for login
+   * @param cmd 
+   */
+  public setMessageCmdLogin(cmd: number) {
+    this._messageCmdLogin = cmd
+  }
+
+  /**
+   * Set message cmd field value for logout
+   * @param cmd 
+   */
+  public setMessageCmdLogout(cmd: number) {
+    this._messageCmdLogout = cmd
   }
 
   /**

@@ -37,6 +37,8 @@ var WSClient = /** @class */ (function () {
         this._subscribes = {};
         this._agentType = AgentTypeWeb;
         this._agentText = 'web';
+        this._messageCmdLogin = MessageCmdLogin;
+        this._messageCmdLogout = MessageCmdLogout;
         this._bizCodeLogin = 'a1001';
         this._bizCodeLogout = 'a1003';
         this._sequenceNumber = 0;
@@ -56,6 +58,8 @@ var WSClient = /** @class */ (function () {
         this._subscribes = {};
         this._agentType = AgentTypeWeb;
         this._agentText = 'web';
+        this._messageCmdLogin = MessageCmdLogin;
+        this._messageCmdLogout = MessageCmdLogout;
         this._bizCodeLogin = 'a1001';
         this._bizCodeLogout = 'a1003';
         this._sequenceNumber = 0;
@@ -196,7 +200,7 @@ var WSClient = /** @class */ (function () {
             bizCode: this._bizCodeLogin,
             data: accountInfo
         };
-        this.send(MessageCmdLogin, msg);
+        this.send(this._messageCmdLogin, msg);
     };
     /**
      * Send logout data
@@ -207,7 +211,7 @@ var WSClient = /** @class */ (function () {
             userAgent: this._agentText,
             bizCode: this._bizCodeLogout,
         };
-        this.send(MessageCmdLogout, msg);
+        this.send(this._messageCmdLogout, msg);
     };
     /**
      * Send biz data
@@ -257,6 +261,20 @@ var WSClient = /** @class */ (function () {
      */
     WSClient.prototype.ping = function (data) {
         this.send(MessageCmdPING, 'ping');
+    };
+    /**
+     * Set message cmd field value for login
+     * @param cmd
+     */
+    WSClient.prototype.setMessageCmdLogin = function (cmd) {
+        this._messageCmdLogin = cmd;
+    };
+    /**
+     * Set message cmd field value for logout
+     * @param cmd
+     */
+    WSClient.prototype.setMessageCmdLogout = function (cmd) {
+        this._messageCmdLogout = cmd;
     };
     /**
      * Set bizcode for login package
