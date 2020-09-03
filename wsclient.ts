@@ -405,17 +405,20 @@ class WSClient {
       // emmits
       let channelField = inst._subscribingChannelMessageField
       if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
+        let keepCallbacks: CallbackWrapper[] = []
         inst._subscribes[msg[channelField]].forEach((cbWrapper: CallbackWrapper, idx: number, cbsArray: CallbackWrapper[]) => {
           if (cbWrapper.cb) {
             cbWrapper.cb(msg)
           }
-          if (cbWrapper.isCallOnce) {
-            cbsArray.splice(idx, 1)
-            if (cbsArray.length <= 0) {
-              delete inst._subscribes[msg[channelField]]
-            }
+          if (!cbWrapper.isCallOnce) {
+            keepCallbacks.push(cbWrapper)
           }
         });
+        if (keepCallbacks.length > 0) {
+          inst._subscribes[msg[channelField]] = keepCallbacks
+        } else {
+          delete inst._subscribes[msg[channelField]]
+        }
       }
     }
   }

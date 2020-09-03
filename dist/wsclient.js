@@ -390,19 +390,23 @@ var WSClient = /** @class */ (function () {
                 console.log('received message failed with code', msg.code, msg.message);
             }
             // emmits
-            var channelField_1 = inst._subscribingChannelMessageField;
-            if (msg[channelField_1] !== undefined && inst._subscribes[msg[channelField_1]]) {
-                inst._subscribes[msg[channelField_1]].forEach(function (cbWrapper, idx, cbsArray) {
+            var channelField = inst._subscribingChannelMessageField;
+            if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
+                var keepCallbacks_1 = [];
+                inst._subscribes[msg[channelField]].forEach(function (cbWrapper, idx, cbsArray) {
                     if (cbWrapper.cb) {
                         cbWrapper.cb(msg);
                     }
-                    if (cbWrapper.isCallOnce) {
-                        cbsArray.splice(idx, 1);
-                        if (cbsArray.length <= 0) {
-                            delete inst._subscribes[msg[channelField_1]];
-                        }
+                    if (!cbWrapper.isCallOnce) {
+                        keepCallbacks_1.push(cbWrapper);
                     }
                 });
+                if (keepCallbacks_1.length > 0) {
+                    inst._subscribes[msg[channelField]] = keepCallbacks_1;
+                }
+                else {
+                    delete inst._subscribes[msg[channelField]];
+                }
             }
         }
     };
