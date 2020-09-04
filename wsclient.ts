@@ -39,6 +39,7 @@ class WSClient {
   private _lastResponseCode: number = 0
   private _subscribingChannelMessageField: string = 'bizCode'
   private _onDisconnectedListener: Function|null = null
+  private _cleanSubscribesOnOpen: boolean = true
 
   constructor() {
     this._accountInfo = {
@@ -62,6 +63,7 @@ class WSClient {
     this._lastResponseCode = 0
     this._subscribingChannelMessageField = 'bizCode'
     this._onDisconnectedListener = null
+    this._cleanSubscribesOnOpen = true
   }
 
   /**
@@ -130,6 +132,9 @@ class WSClient {
       return this.reconnect()
     }
     console.log('opening', this._url)
+    if (this._cleanSubscribesOnOpen) {
+      this.cleanAllSubscribes()
+    }
     this._open()
   }
 
@@ -301,6 +306,21 @@ class WSClient {
     this._bizCodeLogout = bizCode
   }
 
+  /**
+   * Clean suscribes on open websocket if true
+   * @param enable 
+   */
+  public setCleanSubscribesOnOpen(enable: boolean) {
+    this._cleanSubscribesOnOpen = enable
+  }
+
+  /**
+   * Clean all subscribes
+   */
+  public cleanAllSubscribes() {
+    this._subscribes = {}
+  }
+
   private _open() {
     this._ws = new WebSocket(this._url)
     this._ws.onopen = this._onopen
@@ -409,9 +429,9 @@ class WSClient {
         inst._subscribes[msg[channelField]].forEach((cbWrapper: CallbackWrapper, idx: number, cbsArray: CallbackWrapper[]) => {
           if (cbWrapper.cb) {
             cbWrapper.cb(msg)
-          }
-          if (!cbWrapper.isCallOnce) {
-            keepCallbacks.push(cbWrapper)
+            if (!cbWrapper.isCallOnce) {
+              keepCallbacks.push(cbWrapper)
+            }
           }
         });
         if (keepCallbacks.length > 0) {

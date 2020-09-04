@@ -48,6 +48,7 @@ var WSClient = /** @class */ (function () {
         this._lastResponseCode = 0;
         this._subscribingChannelMessageField = 'bizCode';
         this._onDisconnectedListener = null;
+        this._cleanSubscribesOnOpen = true;
         this._accountInfo = {
             username: '',
             password: '',
@@ -69,6 +70,7 @@ var WSClient = /** @class */ (function () {
         this._lastResponseCode = 0;
         this._subscribingChannelMessageField = 'bizCode';
         this._onDisconnectedListener = null;
+        this._cleanSubscribesOnOpen = true;
     }
     /**
      * singleton instance
@@ -130,6 +132,9 @@ var WSClient = /** @class */ (function () {
             return this.reconnect();
         }
         console.log('opening', this._url);
+        if (this._cleanSubscribesOnOpen) {
+            this.cleanAllSubscribes();
+        }
         this._open();
     };
     /**
@@ -290,6 +295,19 @@ var WSClient = /** @class */ (function () {
     WSClient.prototype.setLogoutBizCode = function (bizCode) {
         this._bizCodeLogout = bizCode;
     };
+    /**
+     * Clean suscribes on open websocket if true
+     * @param enable
+     */
+    WSClient.prototype.setCleanSubscribesOnOpen = function (enable) {
+        this._cleanSubscribesOnOpen = enable;
+    };
+    /**
+     * Clean all subscribes
+     */
+    WSClient.prototype.cleanAllSubscribes = function () {
+        this._subscribes = {};
+    };
     WSClient.prototype._open = function () {
         this._ws = new WebSocket(this._url);
         this._ws.onopen = this._onopen;
@@ -397,9 +415,9 @@ var WSClient = /** @class */ (function () {
                 inst._subscribes[msg[channelField]].forEach(function (cbWrapper, idx, cbsArray) {
                     if (cbWrapper.cb) {
                         cbWrapper.cb(msg);
-                    }
-                    if (!cbWrapper.isCallOnce) {
-                        keepCallbacks_1.push(cbWrapper);
+                        if (!cbWrapper.isCallOnce) {
+                            keepCallbacks_1.push(cbWrapper);
+                        }
                     }
                 });
                 if (keepCallbacks_1.length > 0) {
