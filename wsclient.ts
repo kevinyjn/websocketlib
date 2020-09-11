@@ -24,7 +24,7 @@ class WSClient {
   }
   private _heartbeatTimer : number = 0
   private _heartbeatIntervalSeconds : number = 30
-  private _reconnectInteervalSeconds : number = 1
+  private _reconnectIntervalSeconds : number = 1
   private _subscribes: { [key: string]: CallbackWrapper[] } = {}
   private _agentType: number = AgentTypeWeb
   private _agentText: string = 'web'
@@ -33,13 +33,14 @@ class WSClient {
   private _bizCodeLogin: string = 'a1001'
   private _bizCodeLogout: string = 'a1003'
   private _sequenceNumber: number = 0
-  private _cachedPackages: ArrayBuffer[] = []
+  private _pendingPackages: ArrayBuffer[] = []
   private _enablePackageHead: boolean = false
   private _skipReconnectingCodes: number[] = []
   private _lastResponseCode: number = 0
   private _subscribingChannelMessageField: string = 'bizCode'
   private _onDisconnectedListener: Function|null = null
   private _cleanSubscribesOnOpen: boolean = true
+  private _cleanPendingsOnClose: boolean = true
 
   constructor() {
     this._accountInfo = {
@@ -48,7 +49,7 @@ class WSClient {
     }
     this._heartbeatTimer = 0
     this._heartbeatIntervalSeconds = 30
-    this._reconnectInteervalSeconds = 1
+    this._reconnectIntervalSeconds = 1
     this._subscribes = {}
     this._agentType = AgentTypeWeb
     this._agentText = 'web'
@@ -57,13 +58,14 @@ class WSClient {
     this._bizCodeLogin = 'a1001'
     this._bizCodeLogout = 'a1003'
     this._sequenceNumber = 0
-    this._cachedPackages = []
+    this._pendingPackages = []
     this._enablePackageHead = false
     this._skipReconnectingCodes = []
     this._lastResponseCode = 0
     this._subscribingChannelMessageField = 'bizCode'
     this._onDisconnectedListener = null
     this._cleanSubscribesOnOpen = true
+    this._cleanPendingsOnClose = true
   }
 
   /**
@@ -129,6 +131,9 @@ class WSClient {
     this._url = url
     this._accountInfo = accountInfo
     if (this._ws) {
+      if (this._ws.readyState == WebSocket.CONNECTING) {
+        return
+      }
       return this.reconnect()
     }
     console.log('opening', this._url)
@@ -157,6 +162,9 @@ class WSClient {
       this._ws.onclose = null
       this._ws.onerror = null
       this._closeHeartbeat()
+      if (this._cleanPendingsOnClose) {
+        this._pendingPackages = []
+      }
       if (this._ws.readyState == WebSocket.OPEN || this._ws.readyState == WebSocket.CONNECTING) {
         this._ws.close()
       }
@@ -242,8 +250,8 @@ class WSClient {
       buf = msgbuf;
     }
     if (null === this._ws || this._ws.readyState != WebSocket.OPEN) {
-      console.log('websocket were not ready, caching the message', message)
-      this._cachedPackages.push(buf)
+      console.log('websocket were not ready, pending the message', message)
+      this._pendingPackages.push(buf)
       return
     }
     this._ws.send(buf)
@@ -327,6 +335,9 @@ class WSClient {
     this._ws.onmessage = this._onmessage
     this._ws.onclose = this._onclose
     this._ws.onerror = this._onerror
+    if (this._cleanPendingsOnClose) {
+      this._pendingPackages = []
+    }
   }
 
   private _onopen(ev: Event) {
@@ -337,10 +348,12 @@ class WSClient {
     inst._heartbeatTimer = setInterval(() => {
       inst.ping('ping')
     }, inst._heartbeatIntervalSeconds * 1000)
-    if (inst._cachedPackages.length) {
-      inst._cachedPackages.forEach((buf) => {
+    if (inst._pendingPackages.length) {
+      let pendings = inst._pendingPackages
+      pendings.forEach((buf) => {
         inst._ws?.send(buf)
       })
+      inst._pendingPackages = [];
     }
   }
 
@@ -349,13 +362,16 @@ class WSClient {
     const inst = WSClient.instance()
     setTimeout(() => {
       inst.reconnect()
-    }, inst._reconnectInteervalSeconds * 1000)
+    }, inst._reconnectIntervalSeconds * 1000)
   }
 
   private _onclose(ev: CloseEvent) {
     console.log('websocket connection closed with error', ev)
     const inst = WSClient.instance()
     let reconnecting: boolean = true
+    if (inst._cleanPendingsOnClose) {
+      inst._pendingPackages = []
+    }
     inst._skipReconnectingCodes.forEach((code) => {
       if (code === inst._lastResponseCode) {
         console.log('skip reconnecting.')
@@ -370,7 +386,9 @@ class WSClient {
     if (reconnecting) {
       setTimeout(() => {
         inst.reconnect()
-      }, inst._reconnectInteervalSeconds * 1000)
+      }, inst._reconnectIntervalSeconds * 1000)
+    } else {
+      inst.close()
     }
   }
 

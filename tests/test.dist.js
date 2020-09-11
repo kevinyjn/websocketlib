@@ -33,7 +33,7 @@ var WSClient = /** @class */ (function () {
         };
         this._heartbeatTimer = 0;
         this._heartbeatIntervalSeconds = 30;
-        this._reconnectInteervalSeconds = 1;
+        this._reconnectIntervalSeconds = 1;
         this._subscribes = {};
         this._agentType = AgentTypeWeb;
         this._agentText = 'web';
@@ -42,20 +42,21 @@ var WSClient = /** @class */ (function () {
         this._bizCodeLogin = 'a1001';
         this._bizCodeLogout = 'a1003';
         this._sequenceNumber = 0;
-        this._cachedPackages = [];
+        this._pendingPackages = [];
         this._enablePackageHead = false;
         this._skipReconnectingCodes = [];
         this._lastResponseCode = 0;
         this._subscribingChannelMessageField = 'bizCode';
         this._onDisconnectedListener = null;
         this._cleanSubscribesOnOpen = true;
+        this._cleanPendingsOnClose = true;
         this._accountInfo = {
             username: '',
             password: '',
         };
         this._heartbeatTimer = 0;
         this._heartbeatIntervalSeconds = 30;
-        this._reconnectInteervalSeconds = 1;
+        this._reconnectIntervalSeconds = 1;
         this._subscribes = {};
         this._agentType = AgentTypeWeb;
         this._agentText = 'web';
@@ -64,13 +65,14 @@ var WSClient = /** @class */ (function () {
         this._bizCodeLogin = 'a1001';
         this._bizCodeLogout = 'a1003';
         this._sequenceNumber = 0;
-        this._cachedPackages = [];
+        this._pendingPackages = [];
         this._enablePackageHead = false;
         this._skipReconnectingCodes = [];
         this._lastResponseCode = 0;
         this._subscribingChannelMessageField = 'bizCode';
         this._onDisconnectedListener = null;
         this._cleanSubscribesOnOpen = true;
+        this._cleanPendingsOnClose = true;
     }
     /**
      * singleton instance
@@ -129,6 +131,9 @@ var WSClient = /** @class */ (function () {
         this._url = url;
         this._accountInfo = accountInfo;
         if (this._ws) {
+            if (this._ws.readyState == WebSocket.CONNECTING) {
+                return;
+            }
             return this.reconnect();
         }
         console.log('opening', this._url);
@@ -155,6 +160,9 @@ var WSClient = /** @class */ (function () {
             this._ws.onclose = null;
             this._ws.onerror = null;
             this._closeHeartbeat();
+            if (this._cleanPendingsOnClose) {
+                this._pendingPackages = [];
+            }
             if (this._ws.readyState == WebSocket.OPEN || this._ws.readyState == WebSocket.CONNECTING) {
                 this._ws.close();
             }
@@ -238,8 +246,8 @@ var WSClient = /** @class */ (function () {
             buf = msgbuf;
         }
         if (null === this._ws || this._ws.readyState != WebSocket.OPEN) {
-            console.log('websocket were not ready, caching the message', message);
-            this._cachedPackages.push(buf);
+            console.log('websocket were not ready, pending the message', message);
+            this._pendingPackages.push(buf);
             return;
         }
         this._ws.send(buf);
@@ -314,6 +322,9 @@ var WSClient = /** @class */ (function () {
         this._ws.onmessage = this._onmessage;
         this._ws.onclose = this._onclose;
         this._ws.onerror = this._onerror;
+        if (this._cleanPendingsOnClose) {
+            this._pendingPackages = [];
+        }
     };
     WSClient.prototype._onopen = function (ev) {
         console.log('websocket connection established.');
@@ -323,11 +334,13 @@ var WSClient = /** @class */ (function () {
         inst._heartbeatTimer = setInterval(function () {
             inst.ping('ping');
         }, inst._heartbeatIntervalSeconds * 1000);
-        if (inst._cachedPackages.length) {
-            inst._cachedPackages.forEach(function (buf) {
+        if (inst._pendingPackages.length) {
+            var pendings = inst._pendingPackages;
+            pendings.forEach(function (buf) {
                 var _a;
                 (_a = inst._ws) === null || _a === void 0 ? void 0 : _a.send(buf);
             });
+            inst._pendingPackages = [];
         }
     };
     WSClient.prototype._onerror = function (ev) {
@@ -335,12 +348,15 @@ var WSClient = /** @class */ (function () {
         var inst = WSClient.instance();
         setTimeout(function () {
             inst.reconnect();
-        }, inst._reconnectInteervalSeconds * 1000);
+        }, inst._reconnectIntervalSeconds * 1000);
     };
     WSClient.prototype._onclose = function (ev) {
         console.log('websocket connection closed with error', ev);
         var inst = WSClient.instance();
         var reconnecting = true;
+        if (inst._cleanPendingsOnClose) {
+            inst._pendingPackages = [];
+        }
         inst._skipReconnectingCodes.forEach(function (code) {
             if (code === inst._lastResponseCode) {
                 console.log('skip reconnecting.');
@@ -355,7 +371,10 @@ var WSClient = /** @class */ (function () {
         if (reconnecting) {
             setTimeout(function () {
                 inst.reconnect();
-            }, inst._reconnectInteervalSeconds * 1000);
+            }, inst._reconnectIntervalSeconds * 1000);
+        }
+        else {
+            inst.close();
         }
     };
     WSClient.prototype._onmessage = function (ev) {
