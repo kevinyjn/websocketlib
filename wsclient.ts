@@ -250,7 +250,8 @@ class WSClient {
       buf = msgbuf;
     }
     if (null === this._ws || this._ws.readyState != WebSocket.OPEN) {
-      console.log('websocket were not ready, pending the message', message)
+      const stateText = null === this._ws ? 'opened' : 'ready'
+      console.log(`websocket were not ${stateText}, pending the message`, message)
       this._pendingPackages.push(buf)
       return
     }
