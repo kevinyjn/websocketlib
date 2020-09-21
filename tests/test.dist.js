@@ -46,10 +46,11 @@ var WSClient = /** @class */ (function () {
         this._enablePackageHead = false;
         this._skipReconnectingCodes = [];
         this._lastResponseCode = 0;
-        this._subscribingChannelMessageField = 'bizCode';
+        this._subscribingChannelMessageField = 'requestId';
         this._onDisconnectedListener = null;
         this._cleanSubscribesOnOpen = true;
         this._cleanPendingsOnClose = true;
+        this._enableDebugLog = false;
         this._accountInfo = {
             username: '',
             password: '',
@@ -69,10 +70,11 @@ var WSClient = /** @class */ (function () {
         this._enablePackageHead = false;
         this._skipReconnectingCodes = [];
         this._lastResponseCode = 0;
-        this._subscribingChannelMessageField = 'bizCode';
+        this._subscribingChannelMessageField = 'requestId';
         this._onDisconnectedListener = null;
         this._cleanSubscribesOnOpen = true;
         this._cleanPendingsOnClose = true;
+        this._enableDebugLog = false;
     }
     /**
      * singleton instance
@@ -99,6 +101,13 @@ var WSClient = /** @class */ (function () {
      */
     WSClient.prototype.enablePackageHead = function (enabled) {
         this._enablePackageHead = enabled;
+    };
+    /**
+     * Enabling debug log if true
+     * @param enabled boolean
+     */
+    WSClient.prototype.enableDebugLog = function (enabled) {
+        this._enableDebugLog = enabled;
     };
     /**
      * Set codes got responsed from server that should skip reconnecting on close
@@ -247,7 +256,7 @@ var WSClient = /** @class */ (function () {
         }
         if (null === this._ws || this._ws.readyState != WebSocket.OPEN) {
             var stateText = null === this._ws ? 'opened' : 'ready';
-            console.log("websocket were not " + stateText + ", pending the message", message);
+            console.warn("websocket were not " + stateText + ", pending the message", message);
             this._pendingPackages.push(buf);
             return;
         }
@@ -345,14 +354,14 @@ var WSClient = /** @class */ (function () {
         }
     };
     WSClient.prototype._onerror = function (ev) {
-        console.log('websocket connection broken with error', ev);
+        console.warn('websocket connection broken with error', ev);
         var inst = WSClient.instance();
         setTimeout(function () {
             inst.reconnect();
         }, inst._reconnectIntervalSeconds * 1000);
     };
     WSClient.prototype._onclose = function (ev) {
-        console.log('websocket connection closed with error', ev);
+        console.warn('websocket connection closed with error', ev);
         var inst = WSClient.instance();
         var reconnecting = true;
         if (inst._cleanPendingsOnClose) {
@@ -360,7 +369,9 @@ var WSClient = /** @class */ (function () {
         }
         inst._skipReconnectingCodes.forEach(function (code) {
             if (code === inst._lastResponseCode) {
-                console.log('skip reconnecting.');
+                if (inst._enableDebugLog) {
+                    console.log('skip reconnecting.');
+                }
                 reconnecting = false;
                 inst._closeHeartbeat();
                 if (null !== inst._onDisconnectedListener) {
@@ -379,13 +390,12 @@ var WSClient = /** @class */ (function () {
         }
     };
     WSClient.prototype._onmessage = function (ev) {
-        // console.log('receiving data', ev.data)
         var inst = WSClient.instance();
         if (ev.data.text) {
             ev.data.text().then(function (data) {
                 inst._on_received_data(data);
             }).catch(function (e) {
-                console.log('read received message failed with error', e);
+                console.error('read received message failed with error', e);
             });
         }
         else if (typeof (ev.data) === 'string') {
@@ -400,7 +410,9 @@ var WSClient = /** @class */ (function () {
         }
     };
     WSClient.prototype._on_received_data = function (data) {
-        console.log('received data', data);
+        if (this._enableDebugLog) {
+            console.log('received data', data);
+        }
         if ('pong' === data) {
             return;
         }
@@ -410,7 +422,7 @@ var WSClient = /** @class */ (function () {
             msg = JSON.parse(data);
         }
         catch (e) {
-            console.log('parse received data failed', e);
+            console.error('parse received data failed', e);
         }
         if (msg.code !== undefined) {
             inst._lastResponseCode = msg.code;
@@ -426,25 +438,26 @@ var WSClient = /** @class */ (function () {
                 }
             }
             else {
-                console.log('received message failed with code', msg.code, msg.message);
+                console.warn('received message failed with code', msg.code, msg.message);
             }
             // emmits
-            var channelField = inst._subscribingChannelMessageField;
-            if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
-                var keepCallbacks_1 = [];
-                inst._subscribes[msg[channelField]].forEach(function (cbWrapper, idx, cbsArray) {
+            var channelValue_1 = msg[inst._subscribingChannelMessageField];
+            if (channelValue_1 !== undefined && inst._subscribes[channelValue_1]) {
+                var currentCallbacks_1 = [];
+                inst._subscribes[channelValue_1].forEach(function (cbWrapper, idx, cbsArray) {
+                    currentCallbacks_1.push(cbWrapper);
+                });
+                inst._subscribes[channelValue_1] = [];
+                currentCallbacks_1.forEach(function (cbWrapper, idx, cbsArray) {
                     if (cbWrapper.cb) {
                         cbWrapper.cb(msg);
                         if (!cbWrapper.isCallOnce) {
-                            keepCallbacks_1.push(cbWrapper);
+                            inst._subscribes[channelValue_1].push(cbWrapper);
                         }
                     }
                 });
-                if (keepCallbacks_1.length > 0) {
-                    inst._subscribes[msg[channelField]] = keepCallbacks_1;
-                }
-                else {
-                    delete inst._subscribes[msg[channelField]];
+                if (inst._subscribes[channelValue_1].length <= 0) {
+                    delete inst._subscribes[channelValue_1];
                 }
             }
         }

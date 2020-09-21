@@ -37,10 +37,11 @@ class WSClient {
   private _enablePackageHead: boolean = false
   private _skipReconnectingCodes: number[] = []
   private _lastResponseCode: number = 0
-  private _subscribingChannelMessageField: string = 'bizCode'
+  private _subscribingChannelMessageField: string = 'requestId'
   private _onDisconnectedListener: Function|null = null
   private _cleanSubscribesOnOpen: boolean = true
   private _cleanPendingsOnClose: boolean = true
+  private _enableDebugLog: boolean = false
 
   constructor() {
     this._accountInfo = {
@@ -62,10 +63,11 @@ class WSClient {
     this._enablePackageHead = false
     this._skipReconnectingCodes = []
     this._lastResponseCode = 0
-    this._subscribingChannelMessageField = 'bizCode'
+    this._subscribingChannelMessageField = 'requestId'
     this._onDisconnectedListener = null
     this._cleanSubscribesOnOpen = true
     this._cleanPendingsOnClose = true
+    this._enableDebugLog = false
   }
 
   /**
@@ -95,6 +97,14 @@ class WSClient {
    */
   public enablePackageHead(enabled: boolean) {
     this._enablePackageHead = enabled
+  }
+
+  /**
+   * Enabling debug log if true
+   * @param enabled boolean
+   */
+  public enableDebugLog(enabled: boolean) {
+    this._enableDebugLog = enabled
   }
 
   /**
@@ -251,7 +261,7 @@ class WSClient {
     }
     if (null === this._ws || this._ws.readyState != WebSocket.OPEN) {
       const stateText = null === this._ws ? 'opened' : 'ready'
-      console.log(`websocket were not ${stateText}, pending the message`, message)
+      console.warn(`websocket were not ${stateText}, pending the message`, message)
       this._pendingPackages.push(buf)
       return
     }
@@ -359,7 +369,7 @@ class WSClient {
   }
 
   private _onerror(ev: Event) {
-    console.log('websocket connection broken with error', ev)
+    console.warn('websocket connection broken with error', ev)
     const inst = WSClient.instance()
     setTimeout(() => {
       inst.reconnect()
@@ -367,7 +377,7 @@ class WSClient {
   }
 
   private _onclose(ev: CloseEvent) {
-    console.log('websocket connection closed with error', ev)
+    console.warn('websocket connection closed with error', ev)
     const inst = WSClient.instance()
     let reconnecting: boolean = true
     if (inst._cleanPendingsOnClose) {
@@ -375,7 +385,9 @@ class WSClient {
     }
     inst._skipReconnectingCodes.forEach((code) => {
       if (code === inst._lastResponseCode) {
-        console.log('skip reconnecting.')
+        if (inst._enableDebugLog) {
+          console.log('skip reconnecting.')
+        }
         reconnecting = false
         inst._closeHeartbeat()
         if (null !== inst._onDisconnectedListener) {
@@ -394,13 +406,12 @@ class WSClient {
   }
 
   private _onmessage(ev: MessageEvent) {
-    // console.log('receiving data', ev.data)
     const inst = WSClient.instance()
     if (ev.data.text) {
       ev.data.text().then((data: any) => {
         inst._on_received_data(data)
       }).catch((e: any) => {
-        console.log('read received message failed with error', e)
+        console.error('read received message failed with error', e)
       })
     } else if (typeof (ev.data) === 'string') {
       inst._on_received_data(ev.data)
@@ -414,7 +425,9 @@ class WSClient {
   }
 
   private _on_received_data(data: any) {
-    console.log('received data', data)
+    if (this._enableDebugLog) {
+      console.log('received data', data)
+    }
     if ('pong' === data) {
       return
     }
@@ -423,7 +436,7 @@ class WSClient {
     try {
       msg = JSON.parse(data)
     } catch (e) {
-      console.log('parse received data failed', e)
+      console.error('parse received data failed', e)
     }
     
     if (msg.code !== undefined) {
@@ -438,25 +451,27 @@ class WSClient {
           }
         }
       } else {
-        console.log('received message failed with code', msg.code, msg.message)
+        console.warn('received message failed with code', msg.code, msg.message)
       }
 
       // emmits
-      let channelField = inst._subscribingChannelMessageField
-      if (msg[channelField] !== undefined && inst._subscribes[msg[channelField]]) {
-        let keepCallbacks: CallbackWrapper[] = []
-        inst._subscribes[msg[channelField]].forEach((cbWrapper: CallbackWrapper, idx: number, cbsArray: CallbackWrapper[]) => {
+      let channelValue = msg[inst._subscribingChannelMessageField]
+      if (channelValue !== undefined && inst._subscribes[channelValue]) {
+        let currentCallbacks: CallbackWrapper[] = []
+        inst._subscribes[channelValue].forEach((cbWrapper: CallbackWrapper, idx: number, cbsArray: CallbackWrapper[]) => {
+          currentCallbacks.push(cbWrapper)
+        })
+        inst._subscribes[channelValue] = []
+        currentCallbacks.forEach((cbWrapper: CallbackWrapper, idx: number, cbsArray: CallbackWrapper[]) => {
           if (cbWrapper.cb) {
             cbWrapper.cb(msg)
             if (!cbWrapper.isCallOnce) {
-              keepCallbacks.push(cbWrapper)
+              inst._subscribes[channelValue].push(cbWrapper)
             }
           }
         });
-        if (keepCallbacks.length > 0) {
-          inst._subscribes[msg[channelField]] = keepCallbacks
-        } else {
-          delete inst._subscribes[msg[channelField]]
+        if (inst._subscribes[channelValue].length <= 0) {
+          delete inst._subscribes[channelValue]
         }
       }
     }
