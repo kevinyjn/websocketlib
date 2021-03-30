@@ -47,7 +47,7 @@ var WSClient = /** @class */ (function () {
         this._lastResponseCode = 0;
         this._subscribingChannelMessageField = 'requestId';
         this._onDisconnectedListener = null;
-        this._cleanSubscribesOnOpen = true;
+        this._cleanSubscribesOnClose = true;
         this._cleanPendingsOnClose = true;
         this._enableDebugLog = false;
         this._accountInfo = {
@@ -71,7 +71,7 @@ var WSClient = /** @class */ (function () {
         this._lastResponseCode = 0;
         this._subscribingChannelMessageField = 'requestId';
         this._onDisconnectedListener = null;
-        this._cleanSubscribesOnOpen = true;
+        this._cleanSubscribesOnClose = true;
         this._cleanPendingsOnClose = true;
         this._enableDebugLog = false;
     }
@@ -145,9 +145,6 @@ var WSClient = /** @class */ (function () {
             return this.reconnect();
         }
         console.log('opening', this._url);
-        if (this._cleanSubscribesOnOpen) {
-            this.cleanAllSubscribes();
-        }
         this._open();
     };
     /**
@@ -168,6 +165,9 @@ var WSClient = /** @class */ (function () {
             this._ws.onclose = null;
             this._ws.onerror = null;
             this._closeHeartbeat();
+            if (this._cleanSubscribesOnClose) {
+                this.cleanAllSubscribes();
+            }
             if (this._cleanPendingsOnClose) {
                 this._pendingPackages = [];
             }
@@ -313,11 +313,11 @@ var WSClient = /** @class */ (function () {
         this._bizCodeLogout = bizCode;
     };
     /**
-     * Clean suscribes on open websocket if true
+     * Clean suscribes on websocket closed if true
      * @param enable
      */
-    WSClient.prototype.setCleanSubscribesOnOpen = function (enable) {
-        this._cleanSubscribesOnOpen = enable;
+    WSClient.prototype.setCleanSubscribesOnClose = function (enable) {
+        this._cleanSubscribesOnClose = enable;
     };
     /**
      * Clean all subscribes
@@ -365,6 +365,9 @@ var WSClient = /** @class */ (function () {
         var reconnecting = true;
         if (inst._cleanPendingsOnClose) {
             inst._pendingPackages = [];
+        }
+        if (inst._cleanSubscribesOnClose) {
+            inst.cleanAllSubscribes();
         }
         inst._skipReconnectingCodes.forEach(function (code) {
             if (code === inst._lastResponseCode) {

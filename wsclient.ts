@@ -39,7 +39,7 @@ class WSClient {
   private _lastResponseCode: number = 0
   private _subscribingChannelMessageField: string = 'requestId'
   private _onDisconnectedListener: Function|null = null
-  private _cleanSubscribesOnOpen: boolean = true
+  private _cleanSubscribesOnClose: boolean = true
   private _cleanPendingsOnClose: boolean = true
   private _enableDebugLog: boolean = false
 
@@ -65,7 +65,7 @@ class WSClient {
     this._lastResponseCode = 0
     this._subscribingChannelMessageField = 'requestId'
     this._onDisconnectedListener = null
-    this._cleanSubscribesOnOpen = true
+    this._cleanSubscribesOnClose = true
     this._cleanPendingsOnClose = true
     this._enableDebugLog = false
   }
@@ -147,9 +147,6 @@ class WSClient {
       return this.reconnect()
     }
     console.log('opening', this._url)
-    if (this._cleanSubscribesOnOpen) {
-      this.cleanAllSubscribes()
-    }
     this._open()
   }
 
@@ -172,6 +169,9 @@ class WSClient {
       this._ws.onclose = null
       this._ws.onerror = null
       this._closeHeartbeat()
+      if (this._cleanSubscribesOnClose) {
+        this.cleanAllSubscribes()
+      }
       if (this._cleanPendingsOnClose) {
         this._pendingPackages = []
       }
@@ -326,11 +326,11 @@ class WSClient {
   }
 
   /**
-   * Clean suscribes on open websocket if true
+   * Clean suscribes on websocket closed if true
    * @param enable 
    */
-  public setCleanSubscribesOnOpen(enable: boolean) {
-    this._cleanSubscribesOnOpen = enable
+  public setCleanSubscribesOnClose(enable: boolean) {
+    this._cleanSubscribesOnClose = enable
   }
 
   /**
@@ -382,6 +382,9 @@ class WSClient {
     let reconnecting: boolean = true
     if (inst._cleanPendingsOnClose) {
       inst._pendingPackages = []
+    }
+    if (inst._cleanSubscribesOnClose) {
+      inst.cleanAllSubscribes()
     }
     inst._skipReconnectingCodes.forEach((code) => {
       if (code === inst._lastResponseCode) {
