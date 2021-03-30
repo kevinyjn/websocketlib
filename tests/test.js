@@ -7,8 +7,10 @@ const testInit = (username, password) => {
     wsInst.setLoginBizCode('a1001')
     wsInst.setLogoutBizCode('a1003')
     wsInst.setSkipReconnectingCodes([19014])
-    wsInst.subscribe('a1001', onLogin)
+    wsInst.setSubscribingChannelMessageField('bizCode')
+    wsInst.subscribe('a1001', onLogin, false)
     wsInst.subscribe('a1003', onLogout)
+    wsInst.setHeartbeatIntervalSeconds(170)
     wsInst.open('ws://127.0.0.1:8036/ws/index', {username: username, password: password})
     wsInst.ping('ping')
 

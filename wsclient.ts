@@ -132,6 +132,18 @@ class WSClient {
   }
 
   /**
+   * Set heartbeat interval as seconds
+   * @param seconds heartbeat interval as seconds
+   * @returns 
+   */
+  public setHeartbeatIntervalSeconds(seconds: number) {
+    if (seconds < 1) {
+      return
+    }
+    this._heartbeatIntervalSeconds = seconds
+  }
+
+  /**
    * Opening a websocket connection, if the connection were established or connecting, 
    * it would do the recoonect operation.
    * @param url websocket url
@@ -170,7 +182,7 @@ class WSClient {
       this._ws.onerror = null
       this._closeHeartbeat()
       if (this._cleanSubscribesOnClose) {
-        this.cleanAllSubscribes()
+        this.cleanAllSubscribes(true)
       }
       if (this._cleanPendingsOnClose) {
         this._pendingPackages = []
@@ -335,9 +347,25 @@ class WSClient {
 
   /**
    * Clean all subscribes
+   * @param keepDurableSubscribes default false, will not clean the durable handlers if true
    */
-  public cleanAllSubscribes() {
+  public cleanAllSubscribes(keepDurableSubscribes: boolean = false) {
+    let originSubscribes = this._subscribes
     this._subscribes = {}
+    if (keepDurableSubscribes) {
+      for (let k in originSubscribes) {
+        let curSubscirbes: CallbackWrapper[] = []
+        originSubscribes[k].forEach((cbWrapper: CallbackWrapper, idx: number, cbsArray: CallbackWrapper[]) => {
+          if (!cbWrapper.isCallOnce) {
+            curSubscirbes.push(cbWrapper)
+          }
+        })
+        
+        if (curSubscirbes) {
+          this._subscribes[k] = curSubscirbes
+        }
+      }
+    }
   }
 
   private _open() {
@@ -384,7 +412,7 @@ class WSClient {
       inst._pendingPackages = []
     }
     if (inst._cleanSubscribesOnClose) {
-      inst.cleanAllSubscribes()
+      inst.cleanAllSubscribes(true)
     }
     inst._skipReconnectingCodes.forEach((code) => {
       if (code === inst._lastResponseCode) {

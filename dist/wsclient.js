@@ -130,6 +130,17 @@ var WSClient = /** @class */ (function () {
         this._onDisconnectedListener = cb;
     };
     /**
+     * Set heartbeat interval as seconds
+     * @param seconds heartbeat interval as seconds
+     * @returns
+     */
+    WSClient.prototype.setHeartbeatIntervalSeconds = function (seconds) {
+        if (seconds < 1) {
+            return;
+        }
+        this._heartbeatIntervalSeconds = seconds;
+    };
+    /**
      * Opening a websocket connection, if the connection were established or connecting,
      * it would do the recoonect operation.
      * @param url websocket url
@@ -166,7 +177,7 @@ var WSClient = /** @class */ (function () {
             this._ws.onerror = null;
             this._closeHeartbeat();
             if (this._cleanSubscribesOnClose) {
-                this.cleanAllSubscribes();
+                this.cleanAllSubscribes(true);
             }
             if (this._cleanPendingsOnClose) {
                 this._pendingPackages = [];
@@ -321,9 +332,29 @@ var WSClient = /** @class */ (function () {
     };
     /**
      * Clean all subscribes
+     * @param keepDurableSubscribes default false, will not clean the durable handlers if true
      */
-    WSClient.prototype.cleanAllSubscribes = function () {
+    WSClient.prototype.cleanAllSubscribes = function (keepDurableSubscribes) {
+        if (keepDurableSubscribes === void 0) { keepDurableSubscribes = false; }
+        var originSubscribes = this._subscribes;
         this._subscribes = {};
+        if (keepDurableSubscribes) {
+            var _loop_1 = function (k) {
+                var curSubscirbes = [];
+                originSubscribes[k].forEach(function (cbWrapper, idx, cbsArray) {
+                    if (!cbWrapper.isCallOnce) {
+                        curSubscirbes.push(cbWrapper);
+                    }
+                });
+                if (curSubscirbes) {
+                    this_1._subscribes[k] = curSubscirbes;
+                }
+            };
+            var this_1 = this;
+            for (var k in originSubscribes) {
+                _loop_1(k);
+            }
+        }
     };
     WSClient.prototype._open = function () {
         this._ws = new WebSocket(this._url);
@@ -367,7 +398,7 @@ var WSClient = /** @class */ (function () {
             inst._pendingPackages = [];
         }
         if (inst._cleanSubscribesOnClose) {
-            inst.cleanAllSubscribes();
+            inst.cleanAllSubscribes(true);
         }
         inst._skipReconnectingCodes.forEach(function (code) {
             if (code === inst._lastResponseCode) {
