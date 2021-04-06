@@ -50,6 +50,8 @@ var WSClient = /** @class */ (function () {
         this._cleanSubscribesOnClose = true;
         this._cleanPendingsOnClose = true;
         this._enableDebugLog = false;
+        this._keepDurableSubscribesOnClean = true;
+        this._keepDurableSubscribesUniqual = true;
         this._accountInfo = {
             username: '',
             password: '',
@@ -74,6 +76,8 @@ var WSClient = /** @class */ (function () {
         this._cleanSubscribesOnClose = true;
         this._cleanPendingsOnClose = true;
         this._enableDebugLog = false;
+        this._keepDurableSubscribesOnClean = true;
+        this._keepDurableSubscribesUniqual = true;
     }
     /**
      * singleton instance
@@ -141,6 +145,20 @@ var WSClient = /** @class */ (function () {
         this._heartbeatIntervalSeconds = seconds;
     };
     /**
+     * Set if keep durable subscribes on clean all subscribes automatically called
+     * @param keepDurableSubscribes boolean
+     */
+    WSClient.prototype.setKeepDurableSubscribesOnClean = function (keepDurableSubscribes) {
+        this._keepDurableSubscribesOnClean = keepDurableSubscribes;
+    };
+    /**
+     * Set if keep durable subscribes uniqually on subscribes
+     * @param keepDurableSubscribesUniqual boolean
+     */
+    WSClient.prototype.setKeepDurableSubscribesUniqual = function (keepDurableSubscribesUniqual) {
+        this._keepDurableSubscribesUniqual = keepDurableSubscribesUniqual;
+    };
+    /**
      * Opening a websocket connection, if the connection were established or connecting,
      * it would do the recoonect operation.
      * @param url websocket url
@@ -177,7 +195,7 @@ var WSClient = /** @class */ (function () {
             this._ws.onerror = null;
             this._closeHeartbeat();
             if (this._cleanSubscribesOnClose) {
-                this.cleanAllSubscribes(true);
+                this.cleanAllSubscribes(this._keepDurableSubscribesOnClean);
             }
             if (this._cleanPendingsOnClose) {
                 this._pendingPackages = [];
@@ -196,6 +214,19 @@ var WSClient = /** @class */ (function () {
      */
     WSClient.prototype.subscribe = function (channel, cb, isCallOnce) {
         if (isCallOnce === void 0) { isCallOnce = true; }
+        if (false === isCallOnce && this._keepDurableSubscribesUniqual) {
+            if (this._subscribes[channel]) {
+                var durableFound_1 = false;
+                this._subscribes[channel].forEach(function (cb) {
+                    if (false === cb.isCallOnce) {
+                        durableFound_1 = true;
+                    }
+                });
+                if (durableFound_1) {
+                    return;
+                }
+            }
+        }
         if (this._subscribes[channel]) {
             if (this._getCallbackIndex(this._subscribes[channel], cb) < 0) {
                 this._subscribes[channel].push(new CallbackWrapper(cb, isCallOnce));
@@ -398,7 +429,7 @@ var WSClient = /** @class */ (function () {
             inst._pendingPackages = [];
         }
         if (inst._cleanSubscribesOnClose) {
-            inst.cleanAllSubscribes(true);
+            inst.cleanAllSubscribes(inst._keepDurableSubscribesOnClean);
         }
         inst._skipReconnectingCodes.forEach(function (code) {
             if (code === inst._lastResponseCode) {

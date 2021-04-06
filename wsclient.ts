@@ -42,6 +42,8 @@ class WSClient {
   private _cleanSubscribesOnClose: boolean = true
   private _cleanPendingsOnClose: boolean = true
   private _enableDebugLog: boolean = false
+  private _keepDurableSubscribesOnClean: boolean = true
+  private _keepDurableSubscribesUniqual: boolean = true
 
   constructor() {
     this._accountInfo = {
@@ -68,6 +70,8 @@ class WSClient {
     this._cleanSubscribesOnClose = true
     this._cleanPendingsOnClose = true
     this._enableDebugLog = false
+    this._keepDurableSubscribesOnClean = true
+    this._keepDurableSubscribesUniqual = true
   }
 
   /**
@@ -144,6 +148,22 @@ class WSClient {
   }
 
   /**
+   * Set if keep durable subscribes on clean all subscribes automatically called
+   * @param keepDurableSubscribes boolean
+   */
+  public setKeepDurableSubscribesOnClean(keepDurableSubscribes: boolean) {
+    this._keepDurableSubscribesOnClean = keepDurableSubscribes
+  }
+
+  /**
+   * Set if keep durable subscribes uniqually on subscribes
+   * @param keepDurableSubscribesUniqual boolean
+   */
+   public setKeepDurableSubscribesUniqual(keepDurableSubscribesUniqual: boolean) {
+    this._keepDurableSubscribesUniqual = keepDurableSubscribesUniqual
+  }
+
+  /**
    * Opening a websocket connection, if the connection were established or connecting, 
    * it would do the recoonect operation.
    * @param url websocket url
@@ -182,7 +202,7 @@ class WSClient {
       this._ws.onerror = null
       this._closeHeartbeat()
       if (this._cleanSubscribesOnClose) {
-        this.cleanAllSubscribes(true)
+        this.cleanAllSubscribes(this._keepDurableSubscribesOnClean)
       }
       if (this._cleanPendingsOnClose) {
         this._pendingPackages = []
@@ -201,6 +221,19 @@ class WSClient {
    * @param isCallOnce defaults true, if callback once, the subscribed callback function would be unsubscribed
    */
   public subscribe(channel: string, cb: Function, isCallOnce: boolean = true) {
+    if (false === isCallOnce && this._keepDurableSubscribesUniqual) {
+      if (this._subscribes[channel]) {
+        let durableFound: boolean = false
+        this._subscribes[channel].forEach((cb) => {
+          if (false === cb.isCallOnce) {
+            durableFound = true
+          }
+        })
+        if (durableFound) {
+          return
+        }
+      }
+    }
     if (this._subscribes[channel]) {
       if (this._getCallbackIndex(this._subscribes[channel], cb) < 0) {
         this._subscribes[channel].push(new CallbackWrapper(cb, isCallOnce))
@@ -412,7 +445,7 @@ class WSClient {
       inst._pendingPackages = []
     }
     if (inst._cleanSubscribesOnClose) {
-      inst.cleanAllSubscribes(true)
+      inst.cleanAllSubscribes(inst._keepDurableSubscribesOnClean)
     }
     inst._skipReconnectingCodes.forEach((code) => {
       if (code === inst._lastResponseCode) {
