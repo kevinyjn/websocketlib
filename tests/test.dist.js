@@ -20,6 +20,7 @@ var MessageCmdBiz = 200;
 exports.MessageCmdBiz = MessageCmdBiz;
 var ResultCodeSuccess = 0;
 exports.ResultCodeSuccess = ResultCodeSuccess;
+var MessageHeaderLen = 20;
 /**
  * WebSocket client wrapper
  */
@@ -37,6 +38,7 @@ var WSClient = /** @class */ (function () {
         this._subscribes = {};
         this._agentType = AgentTypeWeb;
         this._agentText = 'web';
+        this._clientCode = 0;
         this._messageCmdLogin = MessageCmdLogin;
         this._messageCmdLogout = MessageCmdLogout;
         this._bizCodeLogin = 'a1001';
@@ -63,6 +65,7 @@ var WSClient = /** @class */ (function () {
         this._subscribes = {};
         this._agentType = AgentTypeWeb;
         this._agentText = 'web';
+        this._clientCode = 0;
         this._messageCmdLogin = MessageCmdLogin;
         this._messageCmdLogout = MessageCmdLogout;
         this._bizCodeLogin = 'a1001';
@@ -94,10 +97,12 @@ var WSClient = /** @class */ (function () {
      * initialize WebSocket client with agent type
      * @param agentType agent type
      * @param agentText agent text
+     * @param clientCode client type code
      */
-    WSClient.prototype.init = function (agentType, agentText) {
+    WSClient.prototype.init = function (agentType, agentText, clientCode) {
+        if (clientCode === void 0) { clientCode = 0; }
         this._agentType = agentType;
-        this._agentText = agentText;
+        this._clientCode = clientCode;
     };
     /**
      * Enabling wrapping package head or not
@@ -289,7 +294,7 @@ var WSClient = /** @class */ (function () {
         var buf;
         if (this._enablePackageHead) {
             this._sequenceNumber++;
-            var wspkg = new WsPackage(cmd, this._agentType, this._sequenceNumber, message);
+            var wspkg = new WsPackage(cmd, this._agentType, this._clientCode, this._sequenceNumber, message);
             buf = wspkg.encode();
         }
         else {
@@ -547,33 +552,37 @@ var WSClient = /** @class */ (function () {
 }());
 exports.WSClient = WSClient;
 var WsPackage = /** @class */ (function () {
-    function WsPackage(cmd, agent, seq, message) {
+    function WsPackage(cmd, agent, clientCode, seq, message) {
         this.len = 0;
         this.cmd = 0;
         this.agent = 0;
         this.flag = 0;
         this.seq = 0;
         this.crc = 0;
+        this.client = 0;
         this.cmd = cmd;
         this.agent = agent;
         this.seq = seq;
+        this.flag = 0x80;
+        this.client = clientCode;
         this.message = message;
     }
     WsPackage.prototype.encode = function () {
         var msgbuf = new TextEncoder().encode(this.message);
-        this.len = 16 + msgbuf.length;
+        this.len = MessageHeaderLen + msgbuf.length;
         this.crc = crc32(this.message);
         var buf = new Uint8Array(this.len);
-        var hdr = new ArrayBuffer(16);
-        var view = new DataView(hdr, 0, 16);
+        var hdr = new ArrayBuffer(MessageHeaderLen);
+        var view = new DataView(hdr, 0, MessageHeaderLen);
         view.setUint32(0, this.len, false);
         view.setUint16(4, this.cmd, false);
         view.setUint8(6, this.agent);
         view.setUint8(7, this.flag);
         view.setUint32(8, this.seq, false);
         view.setUint32(12, this.crc, false);
+        view.setUint32(16, this.client, false);
         buf.set(new Uint8Array(hdr), 0);
-        buf.set(msgbuf, 16);
+        buf.set(msgbuf, MessageHeaderLen);
         // console.log('serialized data', this.len, buf)
         return buf.buffer;
     };
@@ -585,7 +594,8 @@ var WsPackage = /** @class */ (function () {
         this.flag = view.getUint8(7);
         this.seq = view.getUint32(8, false);
         this.crc = view.getUint32(12, false);
-        this.message = new TextDecoder('utf-8').decode(payload.slice(16));
+        this.client = view.getUint32(16, false);
+        this.message = new TextDecoder('utf-8').decode(payload.slice(MessageHeaderLen));
         return true;
     };
     return WsPackage;
@@ -627,7 +637,7 @@ const { WSClient, AgentTypeWeb } = require('../dist/wsclient')
 
 const testInit = (username, password) => {
     const wsInst = WSClient.instance()
-    wsInst.init(AgentTypeWeb, 'yixiaobao')
+    wsInst.init(AgentTypeWeb, 'testing')
     wsInst.enablePackageHead(true)
     wsInst.setLoginBizCode('a1001')
     wsInst.setLogoutBizCode('a1003')
@@ -636,13 +646,13 @@ const testInit = (username, password) => {
     wsInst.subscribe('a1001', onLogin, false)
     wsInst.subscribe('a1003', onLogout)
     wsInst.setHeartbeatIntervalSeconds(170)
-    wsInst.open('ws://127.0.0.1:8036/ws/index', {username: username, password: password})
+    wsInst.open('ws://192.168.0.31:8036/ws/index', {username: username, password: password})
     wsInst.ping('ping')
 
     // WSClient.instance().subscribe('a1005', onServerTime)
     // WSClient.instance().send(200, {
     //     requestId: 'uuid',
-    //     userAgent: 'miaozhenadmin',
+    //     userAgent: 'testing',
     //     bizCode: 'a1005',
     //     data: {time: 0}
     // }, onServertime)

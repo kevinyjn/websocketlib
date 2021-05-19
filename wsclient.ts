@@ -11,6 +11,8 @@ const MessageCmdBiz: number = 200;
 
 const ResultCodeSuccess: number = 0;
 
+const MessageHeaderLen: number = 20;
+
 /**
  * WebSocket client wrapper
  */
@@ -28,6 +30,7 @@ class WSClient {
   private _subscribes: { [key: string]: CallbackWrapper[] } = {}
   private _agentType: number = AgentTypeWeb
   private _agentText: string = 'web'
+  private _clientCode: number = 0
   private _messageCmdLogin: number = MessageCmdLogin
   private _messageCmdLogout: number = MessageCmdLogout
   private _bizCodeLogin: string = 'a1001'
@@ -56,6 +59,7 @@ class WSClient {
     this._subscribes = {}
     this._agentType = AgentTypeWeb
     this._agentText = 'web'
+    this._clientCode = 0
     this._messageCmdLogin = MessageCmdLogin
     this._messageCmdLogout = MessageCmdLogout
     this._bizCodeLogin = 'a1001'
@@ -89,10 +93,11 @@ class WSClient {
    * initialize WebSocket client with agent type
    * @param agentType agent type
    * @param agentText agent text
+   * @param clientCode client type code
    */
-  public init(agentType: number, agentText: string) {
+  public init(agentType: number, agentText: string, clientCode: number = 0) {
     this._agentType = agentType
-    this._agentText = agentText
+    this._clientCode = clientCode
   }
 
   /**
@@ -298,7 +303,7 @@ class WSClient {
     let buf: ArrayBuffer;
     if (this._enablePackageHead) {
       this._sequenceNumber++
-      let wspkg = new WsPackage(cmd, this._agentType, this._sequenceNumber, message)
+      let wspkg = new WsPackage(cmd, this._agentType, this._clientCode, this._sequenceNumber, message)
       buf = wspkg.encode()
     } else {
       let msgbuf = new TextEncoder().encode(message)
@@ -568,30 +573,34 @@ class WsPackage {
   public flag: number = 0;
   public seq: number = 0;
   public crc: number = 0;
+  public client: number = 0;
   public message: string;
 
-  public constructor(cmd: number, agent: number, seq: number, message: any) {
+  public constructor(cmd: number, agent: number, clientCode: number, seq: number, message: any) {
     this.cmd = cmd
     this.agent = agent
     this.seq = seq
+    this.flag = 0x80
+    this.client = clientCode
     this.message = message
   }
 
   public encode(): ArrayBuffer {
     let msgbuf = new TextEncoder().encode(this.message)
-    this.len = 16 + msgbuf.length
+    this.len = MessageHeaderLen + msgbuf.length
     this.crc = crc32(this.message)
     let buf = new Uint8Array(this.len)
-    let hdr = new ArrayBuffer(16)
-    const view = new DataView(hdr, 0, 16)
+    let hdr = new ArrayBuffer(MessageHeaderLen)
+    const view = new DataView(hdr, 0, MessageHeaderLen)
     view.setUint32(0, this.len, false)
     view.setUint16(4, this.cmd, false)
     view.setUint8(6, this.agent)
     view.setUint8(7, this.flag)
     view.setUint32(8, this.seq, false)
     view.setUint32(12, this.crc, false)
+    view.setUint32(16, this.client, false)
     buf.set(new Uint8Array(hdr), 0)
-    buf.set(msgbuf, 16)
+    buf.set(msgbuf, MessageHeaderLen)
     // console.log('serialized data', this.len, buf)
     return buf.buffer
   }
@@ -604,7 +613,8 @@ class WsPackage {
     this.flag = view.getUint8(7)
     this.seq = view.getUint32(8, false)
     this.crc = view.getUint32(12, false)
-    this.message = new TextDecoder('utf-8').decode(payload.slice(16))
+    this.client = view.getUint32(16, false)
+    this.message = new TextDecoder('utf-8').decode(payload.slice(MessageHeaderLen))
     return true
   }
 }
