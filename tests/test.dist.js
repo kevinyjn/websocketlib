@@ -311,11 +311,13 @@ var WSClient = /** @class */ (function () {
     };
     /**
      * Send a business message using default MessageCmdBiz message cmd and subscribes a callback function for callback once
-     * @param message
-     * @param channel
-     * @param cb
+     * @param message payload message
+     * @param channel channel that would be subscribed on callback response
+     * @param cb callback function
+     * @param cmd biz cmd in header
      */
-    WSClient.prototype.sendWithCallback = function (message, channel, cb) {
+    WSClient.prototype.sendWithCallback = function (message, channel, cb, cmd) {
+        if (cmd === void 0) { cmd = MessageCmdBiz; }
         var cbIdx = -1;
         if (this._subscribes[channel]) {
             cbIdx = this._getCallbackIndex(this._subscribes[channel], cb);
@@ -323,7 +325,7 @@ var WSClient = /** @class */ (function () {
         if (cbIdx < 0) {
             this.subscribe(channel, cb, true);
         }
-        this.send(MessageCmdBiz, message);
+        this.send(cmd, message);
     };
     /**
      * Send ping data to keepalive from server

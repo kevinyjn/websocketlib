@@ -320,11 +320,12 @@ class WSClient {
 
   /**
    * Send a business message using default MessageCmdBiz message cmd and subscribes a callback function for callback once
-   * @param message 
-   * @param channel 
-   * @param cb 
+   * @param message payload message
+   * @param channel channel that would be subscribed on callback response
+   * @param cb callback function
+   * @param cmd biz cmd in header
    */
-  public sendWithCallback(message: any, channel: string, cb: Function) {
+  public sendWithCallback(message: any, channel: string, cb: Function, cmd: number = MessageCmdBiz) {
     let cbIdx: number = -1
     if (this._subscribes[channel]) {
       cbIdx = this._getCallbackIndex(this._subscribes[channel], cb)
@@ -332,7 +333,7 @@ class WSClient {
     if (cbIdx < 0) {
       this.subscribe(channel, cb, true)
     }
-    this.send(MessageCmdBiz, message)
+    this.send(cmd, message)
   }
 
   /**
