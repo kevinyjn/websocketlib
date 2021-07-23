@@ -534,7 +534,12 @@ class WSClient {
         inst._subscribes[channelValue] = []
         currentCallbacks.forEach((cbWrapper: CallbackWrapper, idx: number, cbsArray: CallbackWrapper[]) => {
           if (cbWrapper.cb) {
-            cbWrapper.cb(msg)
+            try {
+              cbWrapper.cb(msg)
+            } catch (e) {
+              console.log(`calling subscribe on channel:${channelValue} failed with error:`, e)
+            }
+            
             if (!cbWrapper.isCallOnce) {
               inst._subscribes[channelValue].push(cbWrapper)
             }

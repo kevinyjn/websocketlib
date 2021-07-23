@@ -522,7 +522,12 @@ var WSClient = /** @class */ (function () {
                 inst._subscribes[channelValue_1] = [];
                 currentCallbacks_1.forEach(function (cbWrapper, idx, cbsArray) {
                     if (cbWrapper.cb) {
-                        cbWrapper.cb(msg);
+                        try {
+                            cbWrapper.cb(msg);
+                        }
+                        catch (e) {
+                            console.log("calling subscribe on channel:" + channelValue_1 + " failed with error:", e);
+                        }
                         if (!cbWrapper.isCallOnce) {
                             inst._subscribes[channelValue_1].push(cbWrapper);
                         }
